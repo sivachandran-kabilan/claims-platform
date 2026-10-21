@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Claims.Api.Auth;
 using Claims.Api.Errors;
 using Claims.Application;
@@ -12,7 +13,9 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddClaimsAuth(builder.Configuration);
 builder.Services.AddSingleton(TimeProvider.System);
 
-builder.Services.AddControllers();
+// Enums travel as names ("Motor", "Singapore"), matching how they are stored.
+builder.Services.AddControllers()
+    .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddHealthChecks();

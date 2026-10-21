@@ -66,10 +66,11 @@ public sealed class ClaimHistoryEntry
     private ClaimHistoryEntry() { } // EF
 
     internal ClaimHistoryEntry(
-        ClaimAction action, ClaimStatus? fromStatus, ClaimStatus? toStatus, Actor actor,
+        int sequence, ClaimAction action, ClaimStatus? fromStatus, ClaimStatus? toStatus, Actor actor,
         DateTimeOffset occurredAt, string? reason, decimal? amount, Guid? targetUserId)
     {
         Id = Guid.NewGuid();
+        Sequence = sequence;
         Action = action;
         FromStatus = fromStatus;
         ToStatus = toStatus;
@@ -82,6 +83,9 @@ public sealed class ClaimHistoryEntry
     }
 
     public Guid Id { get; private set; }
+
+    /// <summary>1, 2, 3... per claim. Orders entries that share a timestamp (one request can write several).</summary>
+    public int Sequence { get; private set; }
     public ClaimAction Action { get; private set; }
     public ClaimStatus? FromStatus { get; private set; }
     public ClaimStatus? ToStatus { get; private set; }

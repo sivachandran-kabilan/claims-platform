@@ -271,7 +271,7 @@ public sealed class Claim : AggregateRoot
     private void Record(
         ClaimAction action, Actor actor, DateTimeOffset now, ClaimStatus? from = null, ClaimStatus? to = null,
         string? reason = null, decimal? amount = null, Guid? targetUserId = null) =>
-        _history.Add(new ClaimHistoryEntry(action, from, to, actor, now, reason, amount, targetUserId));
+        _history.Add(new ClaimHistoryEntry(_history.Count + 1, action, from, to, actor, now, reason, amount, targetUserId));
 
     private void Close(string reason, DateTimeOffset now)
     {

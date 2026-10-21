@@ -11,6 +11,10 @@ Publishing to Kafka inside a request risks a committed claim with no event (or a
 - Consumer: dedupes on `eventId` via `ProcessedEvent`; writes `Notification` + `ProcessedEvent` in one transaction; commits offset after. After 3 failures, publish to `claims.events.dlt` (cut fallback: log clearly with eventId).
 - Message handling logic is separate from the consume loop so it is unit-testable without a broker.
 
+## Implementation (slice 4)
+- The outbox write lives in `ClaimsDbContext.SaveChangesAsync` (override): events from tracked `AggregateRoot`s become `OutboxMessage` rows in the same save. Events are cleared only after success; on failure the rows are detached so a retry can't duplicate them. Synchronous `SaveChanges` throws.
+- The table write was moved forward from the relay slice so AC-CLM-1 / AC-EVT-1 pass as soon as claims can be submitted.
+
 ## Consequences
 - At-least-once delivery; duplicates are expected and handled.
 - Up to ~2 s publish latency. Outbox rows are never deleted in this build (README: cleanup job with more time).

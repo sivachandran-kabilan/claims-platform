@@ -15,6 +15,16 @@ Auth: JWT bearer (`src/Claims.Api/Auth/AuthSetup.cs`). Fallback policy requires 
 | GET | /auth/me | AnyUser | n/a | 200 `UserResponse` | 401 |
 | POST | /users | Manager | `{email, password, displayName, role}` role ∈ ClaimStaff/ClaimManager | 201 `UserResponse` | 400, 401, 403, 409 |
 | GET | /users | Manager | `?page=1&pageSize=20(≤100)&role=` sorted by email | 200 `PagedResult<UserResponse> {items, page, pageSize, totalCount}` | 400, 401, 403 |
+| POST | /claims | Claimant | header `Idempotency-Key` (≤100); body `{type, market, policyNumber, incidentDate (yyyy-MM-dd), description, contactPhone, claimedAmount}` (no currency; any extra field ignored) | 201 `ClaimDetailResponse` + `Location` + `ETag`; same key + same body → same claim (201) | 400, 401, 403, 422 (key reused with different body) |
+| GET | /claims/{id} | AnyUser (claimant: own only) | n/a | 200 `ClaimDetailResponse` + `ETag` | 401, 404 (missing **or another claimant's**) |
+| GET | /claims/mine | Claimant | `?page&pageSize&status` newest first | 200 `PagedResult<ClaimSummaryResponse>` | 400, 401, 403 |
+| GET | /claims | Staff | `?page&pageSize&status&market&type&assignedTo&unassigned&sort=submittedAt\|-submittedAt` (default newest first) | 200 `PagedResult<ClaimSummaryResponse>` | 400, 401, 403 |
+| GET | /claims/queue | Staff | `?page&pageSize`; Submitted + unassigned, oldest first | 200 `PagedResult<ClaimSummaryResponse>` | 400, 401, 403 |
+
+Claims (`src/Claims.Api/Controllers/ClaimsController.cs`, read model `src/Claims.Application/Claims/Common/ClaimReadModel.cs`):
+- Enums are strings in JSON (`"Motor"`, `"Singapore"`, `"UnderReview"`).
+- `ETag` = `"<base64 rowversion>"` (strong); `If-Match` uses it from the workflow slice on.
+- **Claimant view** (approved slice 4): `reserve`, `outstandingReserve`, `assignedToUserId`, actor/target/uploader ids are null; `SetReserve` and `Reassign` history entries are hidden. Information requests on a closed claim show state `Unanswered`.
 
 Exceptions to conventions (approved slice 2): register and POST /users take no `Idempotency-Key` and return 201 with a body but no `Location` (unique email makes retries safe → 409; there is no GET /users/{id}).
 Rate limit: policy `auth`, fixed window 10/min per client IP (`RateLimiting:AuthPermitLimit`).

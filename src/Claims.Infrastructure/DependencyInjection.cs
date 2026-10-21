@@ -1,3 +1,5 @@
+using Claims.Application.Claims.Common;
+using Claims.Application.Common.Persistence;
 using Claims.Application.Identity;
 using Claims.Infrastructure.Identity;
 using Claims.Infrastructure.Persistence;
@@ -17,7 +19,11 @@ public static class DependencyInjection
             ?? throw new InvalidOperationException(
                 "Connection string 'Claims' is not configured. Set it with dotnet user-secrets (see README).");
 
-        services.AddDbContext<ClaimsDbContext>(options => options.UseSqlServer(connectionString));
+        // Split queries: a claim detail loads 3 child collections without multiplying rows.
+        services.AddDbContext<ClaimsDbContext>(options => options.UseSqlServer(
+            connectionString, sql => sql.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)));
+        services.AddScoped<IClaimsDbContext>(sp => sp.GetRequiredService<ClaimsDbContext>());
+        services.AddScoped<IClaimNumberGenerator, ClaimNumberGenerator>();
 
         services
             .AddIdentityCore<ApplicationUser>(options =>

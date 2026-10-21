@@ -1,7 +1,11 @@
 using System.Collections.Concurrent;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Claims.Application.Claims.Common;
 using Claims.Application.Identity;
+using Claims.Domain.Common;
 using Claims.Application.Identity.Login;
 using Claims.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
@@ -100,6 +104,68 @@ public class ClaimsApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;
     }
+
+    /// <summary>A client for a brand-new claimant (not cached), for isolation tests.</summary>
+    public async Task<(HttpClient Client, TestUser User)> CreateNewClaimantClientAsync()
+    {
+        var user = await CreateUserAsync(Roles.Claimant);
+        return (CreateClientWithToken(await LoginAsync(user)), user);
+    }
+
+    /// <summary>Runs code against the test database in its own scope (fresh DbContext).</summary>
+    public async Task<T> WithDbAsync<T>(Func<ClaimsDbContext, Task<T>> action)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        return await action(scope.ServiceProvider.GetRequiredService<ClaimsDbContext>());
+    }
+
+    public Task WithDbAsync(Func<ClaimsDbContext, Task> action) =>
+        WithDbAsync(async db => { await action(db); return true; });
+}
+
+public static class ClaimRequests
+{
+    public static Dictionary<string, object?> ValidBody(string market = "Singapore", string type = "Motor") => new()
+    {
+        ["type"] = type,
+        ["market"] = market,
+        ["policyNumber"] = "POL-2026-001",
+        ["incidentDate"] = "2026-10-01",
+        ["description"] = "Rear-ended at traffic lights",
+        ["contactPhone"] = "+6591234567",
+        ["claimedAmount"] = 1500.50m,
+    };
+
+    public static async Task<HttpResponseMessage> SubmitAsync(
+        this HttpClient client, object? body = null, string? idempotencyKey = "generate")
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/claims")
+        {
+            Content = JsonContent.Create(body ?? ValidBody()),
+        };
+        if (idempotencyKey is not null)
+        {
+            request.Headers.Add("Idempotency-Key", idempotencyKey == "generate" ? Guid.NewGuid().ToString() : idempotencyKey);
+        }
+
+        return await client.SendAsync(request);
+    }
+
+    public static async Task<ClaimDetailResponse> SubmitOkAsync(this HttpClient client, object? body = null)
+    {
+        var response = await client.SubmitAsync(body);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<ClaimDetailResponse>(ApiJson.Options))!;
+    }
+}
+
+/// <summary>Matches the API's JSON settings (enums as strings).</summary>
+public static class ApiJson
+{
+    public static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter() },
+    };
 }
 
 [CollectionDefinition(Name)]

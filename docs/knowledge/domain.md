@@ -1,16 +1,17 @@
 # Domain
 
-> Source of truth: `src/Claims.Domain/Claims/` (implemented slice 3). Not yet persisted (EF mapping in slice 4).
+> Source of truth: `src/Claims.Domain/Claims/`. EF mapping: `src/Claims.Infrastructure/Persistence/Configurations/ClaimConfigurations.cs`.
 
 ## Entities
-- **Claim** (`Claim.cs`, aggregate root): Id, Number (`ClaimNumber`, `CLM-YYYY-NNNNNN`, sequence from DB in slice 4), ClaimantUserId (JWT `sub`), Type (Motor|Property), Market, Currency (from market), PolicyNumber (string), IncidentDate (`DateOnly`), Description, ContactPhone, ClaimedAmount, Reserve?, ApprovedAmount?, OutstandingReserve, SettledAmount?, SettledAt?, RejectionReason?, Status (private set), AssignedToUserId?, SubmittedAt, DecidedAt?. RowVersion added as an EF concern in slice 4.
+- **Claim** (`Claim.cs`, aggregate root): Id, Number (`ClaimNumber`, `CLM-YYYY-NNNNNN`, sequence from DB in slice 4), ClaimantUserId (JWT `sub`), Type (Motor|Property), Market, Currency (from market), PolicyNumber (string), IncidentDate (`DateOnly`), Description, ContactPhone, ClaimedAmount, Reserve?, ApprovedAmount?, OutstandingReserve, SettledAmount?, SettledAt?, RejectionReason?, Status (private set), AssignedToUserId?, SubmittedAt, DecidedAt?. RowVersion is an EF shadow property (ETag / concurrency), not on the class. Number comes from the `ClaimNumbers` DB sequence (global, gaps possible).
   - Amounts are plain `decimal` (2 dp) in the claim's single `Currency`; `Money` (`ValueObjects.cs`) is used when an amount leaves the claim (events, DTOs, reports). ADR 006.
   - **InformationRequest** (`ClaimChildren.cs`): Id, Question, RequestedByUserId, RequestedAt, Response?, RespondedByUserId?, RespondedAt?. `IsOpen` = not responded. At most one open.
   - **DocumentReference**: Id, FileName, ContentType, SizeBytes (≤ 20 MB), StorageRef, UploadedByUserId, UploadedAt, InformationRequestId? (set when the claimant uploads while a request is open). Metadata only.
-  - **ClaimHistoryEntry**: Id, Action (`ClaimAction`), FromStatus?, ToStatus?, ActorUserId, ActorRole, OccurredAt, Reason?, Amount?, TargetUserId? (assignee for Assign/Reassign). One row per action.
+  - **ClaimHistoryEntry**: Id, Action (`ClaimAction`), FromStatus?, ToStatus?, ActorUserId, ActorRole, OccurredAt, Reason?, Amount?, TargetUserId? (assignee for Assign/Reassign), Sequence (1..n per claim, orders same-timestamp rows). One row per action.
 - **Actor** (`UserId`, `Role`): passed into every method; built from the token by the application layer.
 - **Users** live in Identity (`ApplicationUser`: Id, Email, DisplayName, one role). Domain holds user ids only.
-- Infrastructure (later slices): OutboxMessage, ProcessedEvent, Notification, IdempotencyRecord.
+- Persistence records (`Application/Common/Persistence`): OutboxMessage, IdempotencyRecord. Later: ProcessedEvent, Notification.
+- Tables: Claims, ClaimInformationRequests, ClaimDocuments, ClaimHistory, OutboxMessages, IdempotencyRecords (enums stored as strings, amounts decimal(18,2)).
 
 ## State machine (`ClaimTransitions.cs`, action-keyed; ADR 005)
 Table is keyed by **(action, current status) → new status**. Several actions share an edge, so a (from, to) table would let one action use another's path.

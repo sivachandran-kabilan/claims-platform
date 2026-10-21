@@ -25,6 +25,9 @@ public static class RoleMatrix
     private static readonly Caller[] Everyone = [Caller.Anonymous, Caller.Claimant, Caller.ClaimStaff, Caller.ClaimManager];
     private static readonly Caller[] AnyUser = [Caller.Claimant, Caller.ClaimStaff, Caller.ClaimManager];
     private static readonly Caller[] ManagerOnly = [Caller.ClaimManager];
+    private static readonly Caller[] ClaimantOnly = [Caller.Claimant];
+    private static readonly Caller[] StaffAndManager = [Caller.ClaimStaff, Caller.ClaimManager];
+    private static readonly string AnyClaimId = Guid.NewGuid().ToString();
 
     // Route = the endpoint's route template (used to prove every endpoint has a row). Url = a concrete URL to call.
     public static readonly Row[] Rows =
@@ -35,6 +38,13 @@ public static class RoleMatrix
         new("GET", "api/v1/auth/me", "/api/v1/auth/me", AnyUser),
         new("POST", "api/v1/users", "/api/v1/users", ManagerOnly),
         new("GET", "api/v1/users", "/api/v1/users", ManagerOnly),
+
+        // Claims. GET by id: every role passes authorization; ownership (404) is tested in ViewClaimTests.
+        new("POST", "api/v1/claims", "/api/v1/claims", ClaimantOnly),
+        new("GET", "api/v1/claims/mine", "/api/v1/claims/mine", ClaimantOnly),
+        new("GET", "api/v1/claims/{id:guid}", $"/api/v1/claims/{AnyClaimId}", AnyUser),
+        new("GET", "api/v1/claims", "/api/v1/claims", StaffAndManager),
+        new("GET", "api/v1/claims/queue", "/api/v1/claims/queue", StaffAndManager),
     ];
 
     public static TheoryData<string, Caller> Cases()

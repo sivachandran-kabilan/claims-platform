@@ -165,3 +165,47 @@ History of prompts and AI decisions for the assessment panel. Append only; do no
 - `dotnet test`: 188 passed (120 domain, 13 application, 55 integration).
 - Every action × status pair (10 × 6) is checked against an expected table written independently of the production table.
 - Mutation check: re-adding the `(Reject, InfoRequested)` bypass made 3 tests fail (`Reject_FromInfoRequested_IsInvalidTransition`, the matrix case, `ProductionTable_MatchesExpectedTable`); the table was then restored.
+
+---
+
+## PROMPT5: Slice 4, claims persistence + submit/read API (2026-10-21)
+
+**Started:** 2026-10-21 08:40 +05:30 (plan requested) · **Finished:** 2026-10-21 08:55 +05:30 · **Time spent:** ~15 min (planned 40 min)
+
+**Asked:** Present the slice 4 plan (EF mapping, outbox write, submit/get/mine/list/queue). After my answers, build it.
+
+### 1. What I directed the AI to do
+- Persist the claim aggregate and write domain events to the outbox in the same transaction.
+- Expose idempotent submit, claim detail with ETag, the claimant's own list, the staff list with filters and paging, and the unassigned queue, all protected by the role matrix and claimant isolation.
+
+### 2. What I accepted
+- **`IClaimsDbContext` port in Application:** handlers query EF directly, so each slice keeps its queries. Application now references `Microsoft.EntityFrameworkCore` 8.0.32.
+- **Claimant view hides insurer-internal data:** reserve, outstanding reserve, staff/actor ids, and reserve/reassignment history entries.
+- **Idempotency inside the submit handler:** keys per user, max 100 characters, SHA-256 of the request; same key + different body → 422; a concurrent duplicate falls back to the winner's claim. Records are never cleaned up (gap).
+- **Data choices:**
+  - Enums stored and sent as strings.
+  - A global `ClaimNumbers` sequence (gaps possible).
+  - Sorting on `submittedAt` only; the queue is oldest first.
+- **Persistence design:**
+  - The outbox write is a `ClaimsDbContext.SaveChangesAsync` override: events go out only after a successful save, and outbox rows are detached on failure. Sync `SaveChanges` throws.
+  - The rowversion is an EF shadow property (the ETag source), keeping the domain persistence-free.
+  - Split queries are the global default.
+
+### 3. What I challenged
+- Nothing this round; I answered the plan's questions (data-access port, claimant view) and accepted the defaults.
+- **Raised by the AI during the build:**
+  - `AsSplitQuery` needs the relational EF package in Application. Instead of adding a package, split queries were made the global default in Infrastructure.
+  - History rows written in one request share a timestamp, so a `Sequence` column was added to `ClaimHistoryEntry` for a stable audit order (small domain change).
+  - Child-only changes (e.g. AddDocument) won't bump the claim's rowversion, so the ETag wouldn't change. Logged as a gap for the workflow slice.
+
+### 4. What I overrode / cut for time
+- **Cut / deferred:** idempotency record cleanup; sorting beyond `submittedAt`; mocked handler unit tests (handlers are covered end to end against SQL Server, since no in-memory provider is approved).
+
+**Verification:**
+- `dotnet build -warnaserror` succeeded.
+- `dotnet test`: 254 passed (120 domain, 26 application, 108 integration).
+- **Mutation checks:**
+  - Removing the outbox `AddRange` made 4 tests fail (outbox row, no-PII payload, idempotent replay count, full lifecycle).
+  - Removing the claimant filter in `VisibleTo` made 2 tests fail (other claimant gets 404, mine shows only own).
+  - Both files were restored.
+- **Manual run:** the seeded `user@test.com` submitted an Australia claim → 201, `Location`, `ETag`, AUD currency, claimant view with internal fields null; `staff@test.com` saw it in the queue. The API log had no failures, emails or phone numbers.

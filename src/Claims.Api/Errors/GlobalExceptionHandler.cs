@@ -46,6 +46,12 @@ public sealed class GlobalExceptionHandler(
                 Title = "The request conflicts with existing data.",
                 Detail = exception.Message,
             },
+            UnprocessableException => new ProblemDetails
+            {
+                Status = StatusCodes.Status422UnprocessableEntity,
+                Title = "The request cannot be processed.",
+                Detail = exception.Message,
+            },
             InvalidTransitionException => new ProblemDetails
             {
                 Status = StatusCodes.Status409Conflict,

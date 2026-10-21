@@ -1,3 +1,4 @@
+using Claims.Application.Claims.Workflow;
 using Claims.Application.Common.Behaviors;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,6 +17,7 @@ public static class DependencyInjection
             cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
         });
         services.AddValidatorsFromAssembly(assembly);
+        services.AddScoped<ClaimWorkflow>();
 
         return services;
     }

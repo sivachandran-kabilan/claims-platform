@@ -45,7 +45,22 @@ public static class RoleMatrix
         new("GET", "api/v1/claims/{id:guid}", $"/api/v1/claims/{AnyClaimId}", AnyUser),
         new("GET", "api/v1/claims", "/api/v1/claims", StaffAndManager),
         new("GET", "api/v1/claims/queue", "/api/v1/claims/queue", StaffAndManager),
+
+        // Workflow actions. "Assigned"/"own"/"self" rules are resource checks, tested in WorkflowTests.
+        Action("assign", StaffAndManager),
+        Action("reassign", ManagerOnly),
+        Action("request-info", StaffAndManager),
+        Action("information", ClaimantOnly),
+        Action("assess", StaffAndManager),
+        Action("approve", StaffAndManager),
+        Action("reject", StaffAndManager),
+        Action("reject-no-response", StaffAndManager),
+        Action("settle", StaffAndManager),
+        Action("documents", AnyUser),
     ];
+
+    private static Row Action(string action, Caller[] allowed) =>
+        new("POST", $"api/v1/claims/{{id:guid}}/{action}", $"/api/v1/claims/{AnyClaimId}/{action}", allowed);
 
     public static TheoryData<string, Caller> Cases()
     {

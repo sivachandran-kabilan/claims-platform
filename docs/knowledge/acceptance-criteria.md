@@ -22,7 +22,7 @@ Format: Given / When / Then. A slice is done only when its criteria pass as auto
 - **AC-CLM-10 Assess.** Reserve only in `UnderReview` (409 otherwise), > 0, in claim currency; writes history; sets outstanding = reserve.
 - **AC-CLM-11 Reassign.** ClaimManager only; reason required (400); target must be ClaimStaff/ClaimManager (422); only in UnderReview/InfoRequested/Approved (409); writes history. *(cut candidate: keep domain test)*
 - **AC-CLM-12 Reject no response.** Only from `InfoRequested`; open request < 15 days old → 422 (fake clock); reason fixed "No response received"; outstanding = 0; emits `ClaimDecided`. *(cut candidate: keep domain test)*
-- **AC-CLM-13 Documents.** Metadata only; content type allow-listed and size capped (400); terminal → 409; another claimant → 404; unassigned staff → 403. *(cut candidate)*
+- **AC-CLM-13 Documents.** Metadata only; content type allow-listed (pdf/jpeg/png) and size capped at 20 MB (400); terminal → 409; another claimant → 404; unassigned staff → 403. Requires `If-Match` (not `Idempotency-Key`); 201 with `Location` of the claim; the claim's ETag changes.
 
 ## Notifications
 - **AC-NOT-1** `GET /notifications/mine` returns only the caller's latest 50, newest first.

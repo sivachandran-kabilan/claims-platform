@@ -34,6 +34,24 @@ public sealed class GlobalExceptionHandler(
                 Status = StatusCodes.Status401Unauthorized,
                 Title = "Invalid credentials.",
             },
+            ForbiddenAccessException => new ProblemDetails
+            {
+                Status = StatusCodes.Status403Forbidden,
+                Title = "You are not allowed to perform this action.",
+                Detail = exception.Message,
+            },
+            PreconditionRequiredException => new ProblemDetails
+            {
+                Status = StatusCodes.Status428PreconditionRequired,
+                Title = "Precondition required.",
+                Detail = exception.Message,
+            },
+            PreconditionFailedException => new ProblemDetails
+            {
+                Status = StatusCodes.Status412PreconditionFailed,
+                Title = "Precondition failed.",
+                Detail = exception.Message,
+            },
             NotFoundException => new ProblemDetails
             {
                 Status = StatusCodes.Status404NotFound,

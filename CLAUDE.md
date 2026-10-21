@@ -155,7 +155,7 @@ Every state change writes a status-history/audit row (who, when, from, to, reaso
 ## API conventions
 - Routes `/api/v1/...`, plural nouns. Explicit action endpoints for transitions (e.g., `POST /claims/{id}/approve`).
 - Every endpoint declares its authorization explicitly. See the endpoint role matrix under "Authentication and authorization".
-- POST create requires `Idempotency-Key`. Return 201 + `Location`.
+- POST create requires `Idempotency-Key`. Return 201 + `Location`. Exceptions: register/`POST /users` (unique email) and `POST /claims/{id}/documents` (uses `If-Match`; slice 5).
 - State-changing calls require `If-Match` with the ETag (rowversion). 412 on mismatch, 428 if missing.
 - Lists: pagination (`page`, `pageSize` max 100), filtering, sorting. No unbounded lists.
 - Errors: RFC 7807 ProblemDetails. 400 validation (with field errors), 401, 403, 404, 409 (state conflict), 412, 422 (business rule), 500 (no internals leaked).

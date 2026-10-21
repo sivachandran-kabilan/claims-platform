@@ -1,3 +1,4 @@
+using Claims.Application.Claims.Workflow;
 using Claims.Application.Common.Persistence;
 using Claims.Application.Common.Security;
 using Claims.Domain.Claims;
@@ -54,7 +55,7 @@ public static class ClaimReadModel
         }
 
         var detail = MarkUnanswered(row.Detail);
-        return new ClaimDetailResult(viewer.IsClaimant() ? ForClaimant(detail) : detail, ToETag(row.RowVersion));
+        return new ClaimDetailResult(viewer.IsClaimant() ? ForClaimant(detail) : detail, ETags.Format(row.RowVersion));
     }
 
     /// <summary>Summary projection for lists (translated to SQL).</summary>
@@ -65,8 +66,6 @@ public static class ClaimReadModel
 
     public static ClaimSummaryResponse ForClaimant(ClaimSummaryResponse summary) =>
         summary with { OutstandingReserve = null, AssignedToUserId = null };
-
-    public static string ToETag(byte[] rowVersion) => $"\"{Convert.ToBase64String(rowVersion)}\"";
 
     // Insurer-internal data is hidden from claimants (approved slice 4): reserve, outstanding reserve,
     // staff ids, and reserve/reassignment history entries.

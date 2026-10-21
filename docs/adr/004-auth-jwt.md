@@ -23,6 +23,10 @@ Brief requires registration and login. External IdP is a non-goal.
 - The fallback policy also covers unmatched URLs: anonymous callers get 401 rather than 404, so routes can't be probed.
 - The framework's `ExceptionHandlerMiddleware` log is disabled; our handler logs exception type + stack trace only (messages can carry data such as emails).
 
+## Claim actions (slice 5)
+- Act rules (`ClaimAccess`): `AssignedStaffOrManager`, `Owner`, `ManagerOnly`, `DocumentUploader` (owner / assigned staff / manager), `CanAssign(assignee)` (staff: self only). Assignees must exist and be ClaimStaff/ClaimManager (422).
+- Every action runs through `ClaimWorkflow` in a fixed order: 428 → 404 → 403 → 412 → domain. 404 before 403 so claimants can't discover other claims; 403 before 412 so versions can't be probed by people who may not act.
+
 ## Consequences (README gaps)
 - No refresh token: session ends after 15 min.
 - No revocation: role change or account removal takes effect at token expiry.

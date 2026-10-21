@@ -105,12 +105,14 @@ public class ClaimsApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         return client;
     }
 
-    /// <summary>A client for a brand-new claimant (not cached), for isolation tests.</summary>
-    public async Task<(HttpClient Client, TestUser User)> CreateNewClaimantClientAsync()
+    /// <summary>A client for a brand-new user (not cached), for isolation and assignment tests.</summary>
+    public async Task<(HttpClient Client, TestUser User)> CreateNewClientAsync(string role)
     {
-        var user = await CreateUserAsync(Roles.Claimant);
+        var user = await CreateUserAsync(role);
         return (CreateClientWithToken(await LoginAsync(user)), user);
     }
+
+    public Task<(HttpClient Client, TestUser User)> CreateNewClaimantClientAsync() => CreateNewClientAsync(Roles.Claimant);
 
     /// <summary>Runs code against the test database in its own scope (fresh DbContext).</summary>
     public async Task<T> WithDbAsync<T>(Func<ClaimsDbContext, Task<T>> action)

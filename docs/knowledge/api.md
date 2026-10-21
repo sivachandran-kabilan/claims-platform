@@ -20,11 +20,22 @@ Auth: JWT bearer (`src/Claims.Api/Auth/AuthSetup.cs`). Fallback policy requires 
 | GET | /claims/mine | Claimant | `?page&pageSize&status` newest first | 200 `PagedResult<ClaimSummaryResponse>` | 400, 401, 403 |
 | GET | /claims | Staff | `?page&pageSize&status&market&type&assignedTo&unassigned&sort=submittedAt\|-submittedAt` (default newest first) | 200 `PagedResult<ClaimSummaryResponse>` | 400, 401, 403 |
 | GET | /claims/queue | Staff | `?page&pageSize`; Submitted + unassigned, oldest first | 200 `PagedResult<ClaimSummaryResponse>` | 400, 401, 403 |
+| POST | /claims/{id}/assign | Staff (staff: self only; manager: anyone) | `{assigneeUserId?}` (omitted = me) | 200 detail + ETag | 400, 403, 404, 409, 412, 422 (assignee not staff/manager), 428 |
+| POST | /claims/{id}/reassign | Manager | `{assigneeUserId, reason}` | 200 | 400, 403, 404, 409, 412, 422 (invalid/same assignee), 428 |
+| POST | /claims/{id}/request-info | Staff (assigned) / Manager | `{question}` | 200 | 400, 403, 404, 409, 412, 428 |
+| POST | /claims/{id}/information | Claimant (own) | `{response}` | 200 | 400, 403, 404, 409, 412, 428 |
+| POST | /claims/{id}/assess | Staff (assigned) / Manager | `{reserve}` | 200 | 400, 403, 404, 409, 412, 428 |
+| POST | /claims/{id}/approve | Staff (assigned) / Manager | `{approvedAmount}` (≤ reserve) | 200 | 400, 403, 404, 409, 412, 422, 428 |
+| POST | /claims/{id}/reject | Staff (assigned) / Manager | `{reason}` | 200 | 400, 403, 404, 409, 412, 428 |
+| POST | /claims/{id}/reject-no-response | Staff (assigned) / Manager | none | 200 | 403, 404, 409, 412, 422 (< 15 days), 428 |
+| POST | /claims/{id}/settle | Staff (assigned) / Manager | `{amount}` (≤ approved) | 200 | 400, 403, 404, 409, 412, 422, 428 |
+| POST | /claims/{id}/documents | Owner / assigned staff / manager | `{fileName, contentType (pdf/jpeg/png), sizeBytes (≤20 MB), storageRef}` | 201 detail + `Location` (claim) + ETag | 400, 403, 404, 409, 412, 428 |
 
 Claims (`src/Claims.Api/Controllers/ClaimsController.cs`, read model `src/Claims.Application/Claims/Common/ClaimReadModel.cs`):
 - Enums are strings in JSON (`"Motor"`, `"Singapore"`, `"UnderReview"`).
-- `ETag` = `"<base64 rowversion>"` (strong); `If-Match` uses it from the workflow slice on.
+- `ETag` = `"<base64 rowversion>"` (strong). Every action needs `If-Match` with it: missing → 428; stale, weak `W/`, `*` or malformed → 412. Every action changes the ETag (`Claim.UpdatedAt` is stamped on every action).
+- **Action check order** (`src/Claims.Application/Claims/Workflow/ClaimWorkflow.cs`): 400 body → 428 → 404 (not visible) → 403 (act rule, `ClaimAccess`) → 412 → 409/422 (domain) → save (EF rowversion check, race → 412). Actions return 200 with the updated detail (viewer's view) + new ETag.
 - **Claimant view** (approved slice 4): `reserve`, `outstandingReserve`, `assignedToUserId`, actor/target/uploader ids are null; `SetReserve` and `Reassign` history entries are hidden. Information requests on a closed claim show state `Unanswered`.
 
-Exceptions to conventions (approved slice 2): register and POST /users take no `Idempotency-Key` and return 201 with a body but no `Location` (unique email makes retries safe → 409; there is no GET /users/{id}).
+Exceptions to conventions: register and POST /users take no `Idempotency-Key` and return 201 with a body but no `Location` (slice 2; unique email makes retries safe → 409). POST /claims/{id}/documents takes `If-Match` instead of `Idempotency-Key` (slice 5; a blind retry gets 412, not a duplicate) and its `Location` is the claim.
 Rate limit: policy `auth`, fixed window 10/min per client IP (`RateLimiting:AuthPermitLimit`).

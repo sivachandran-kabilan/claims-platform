@@ -1,5 +1,6 @@
 using Claims.Domain.Claims;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace Claims.Application.Common.Persistence;
 
@@ -12,6 +13,9 @@ public interface IClaimsDbContext
     DbSet<Claim> Claims { get; }
     DbSet<OutboxMessage> OutboxMessages { get; }
     DbSet<IdempotencyRecord> IdempotencyRecords { get; }
+
+    /// <summary>Change-tracking entry; the workflow uses it for the rowversion (If-Match) check.</summary>
+    EntityEntry<TEntity> Entry<TEntity>(TEntity entity) where TEntity : class;
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

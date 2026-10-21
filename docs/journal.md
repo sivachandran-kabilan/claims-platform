@@ -209,3 +209,48 @@ History of prompts and AI decisions for the assessment panel. Append only; do no
   - Removing the claimant filter in `VisibleTo` made 2 tests fail (other claimant gets 404, mine shows only own).
   - Both files were restored.
 - **Manual run:** the seeded `user@test.com` submitted an Australia claim → 201, `Location`, `ETag`, AUD currency, claimant view with internal fields null; `staff@test.com` saw it in the queue. The API log had no failures, emails or phone numbers.
+
+---
+
+## PROMPT6: Slice 5, workflow actions + If-Match + who may act (2026-10-21)
+
+**Started:** 2026-10-21 08:56 +05:30 (plan requested) · **Finished:** 2026-10-21 09:12 +05:30 · **Time spent:** ~16 min (planned 45 min)
+
+**Asked:** Present the slice 5 plan (10 action endpoints, If-Match 412/428, act rules). After my OK, build it.
+
+### 1. What I directed the AI to do
+- Expose every claim action as its own endpoint, all behind `If-Match`, with staff acting only on claims assigned to them, claimants only on their own, and managers on any.
+- Prove the HTTP side of every workflow criterion and concurrency.
+
+### 2. What I accepted
+- **One `ClaimWorkflow` runner** for all 10 actions, with handlers of about one line each, so the checks can't drift between endpoints.
+- **Fixed check order:** 400 → 428 → 404 → 403 → 412 → 409/422. 404 before 403 hides other claimants' claims; 403 before 412 stops version probing.
+- **ETag gap fixed** with `Claim.UpdatedAt`, stamped on every action, plus migration `AddClaimUpdatedAt` (with a backfill).
+- **Documents:** `POST /documents` uses `If-Match` instead of `Idempotency-Key` and returns 201 with `Location` pointing at the claim (another approved exception).
+- **Responses and inputs:**
+  - Actions return 200 with the updated claim and the new ETag.
+  - Assign without an assignee means "me"; the assignee must be a ClaimStaff/ClaimManager account (422).
+  - A malformed, weak or `*` If-Match → 412.
+- **Act rules as small named delegates** in `ClaimAccess`: `AssignedStaffOrManager`, `Owner`, `ManagerOnly`, `DocumentUploader`, `CanAssign(assignee)`.
+
+### 3. What I challenged
+- Nothing this round; I accepted the plan as presented.
+- **Raised by the AI during the build:**
+  - The first `AddClaimUpdatedAt` migration would leave existing rows with `UpdatedAt = 0001-01-01`. The AI rolled the dev DB back, added a backfill (`UpdatedAt = SubmittedAt`) and re-applied, rather than editing a migration that stays applied.
+  - The version-check mutation showed EF's own rowversion check catches stale updates even if the explicit comparison were missing. That's a deliberate second line of defence, now documented.
+
+### 4. What I overrode / cut for time
+- **Not cut:** documents, reassign and reject-no-response were all built (they were cut candidates; time allowed).
+- **Deferred:** a deterministic test of the load-to-save race (covered by EF's rowversion check, not exercised directly); `If-Match: *`.
+
+**Verification:**
+- `dotnet build -warnaserror` succeeded.
+- `dotnet test`: 380 passed (120 domain, 43 application, 217 integration).
+- **Mutation checks** (all restored):
+  - Removing the act-rule check → 3 tests fail (all three 403 cases).
+  - Removing the version comparison → 9 tests fail (stale If-Match, double approve). The remaining 2 stale cases were still caught by EF's rowversion check.
+  - Removing the `UpdatedAt` stamp → the document ETag test fails.
+- **Manual run with the seeded accounts:**
+  - Every action through to Settled succeeded: assign, request info, respond, document, assess.
+  - Approve above the reserve got 422; reject after settle got 409; a missing If-Match got 428.
+  - The claimant view shows Settled, and the outbox holds the 4 events in order. The API log had no failures or PII.

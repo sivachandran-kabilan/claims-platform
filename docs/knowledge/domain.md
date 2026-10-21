@@ -3,7 +3,7 @@
 > Source of truth: `src/Claims.Domain/Claims/`. EF mapping: `src/Claims.Infrastructure/Persistence/Configurations/ClaimConfigurations.cs`.
 
 ## Entities
-- **Claim** (`Claim.cs`, aggregate root): Id, Number (`ClaimNumber`, `CLM-YYYY-NNNNNN`, sequence from DB in slice 4), ClaimantUserId (JWT `sub`), Type (Motor|Property), Market, Currency (from market), PolicyNumber (string), IncidentDate (`DateOnly`), Description, ContactPhone, ClaimedAmount, Reserve?, ApprovedAmount?, OutstandingReserve, SettledAmount?, SettledAt?, RejectionReason?, Status (private set), AssignedToUserId?, SubmittedAt, DecidedAt?. RowVersion is an EF shadow property (ETag / concurrency), not on the class. Number comes from the `ClaimNumbers` DB sequence (global, gaps possible).
+- **Claim** (`Claim.cs`, aggregate root): Id, Number (`ClaimNumber`, `CLM-YYYY-NNNNNN`, sequence from DB in slice 4), ClaimantUserId (JWT `sub`), Type (Motor|Property), Market, Currency (from market), PolicyNumber (string), IncidentDate (`DateOnly`), Description, ContactPhone, ClaimedAmount, Reserve?, ApprovedAmount?, OutstandingReserve, SettledAmount?, SettledAt?, RejectionReason?, Status (private set), AssignedToUserId?, SubmittedAt, DecidedAt?, UpdatedAt (stamped by every action, so the row/ETag always changes). RowVersion is an EF shadow property (ETag / concurrency), not on the class. Number comes from the `ClaimNumbers` DB sequence (global, gaps possible).
   - Amounts are plain `decimal` (2 dp) in the claim's single `Currency`; `Money` (`ValueObjects.cs`) is used when an amount leaves the claim (events, DTOs, reports). ADR 006.
   - **InformationRequest** (`ClaimChildren.cs`): Id, Question, RequestedByUserId, RequestedAt, Response?, RespondedByUserId?, RespondedAt?. `IsOpen` = not responded. At most one open.
   - **DocumentReference**: Id, FileName, ContentType, SizeBytes (≤ 20 MB), StorageRef, UploadedByUserId, UploadedAt, InformationRequestId? (set when the claimant uploads while a request is open). Metadata only.
@@ -33,7 +33,7 @@ Terminal: Rejected, Settled. Wrong status → `InvalidTransitionException` (409)
 - All amounts > 0 where entered, at most 2 decimals, in the claim currency; currency from market, never from the client. Timestamps UTC (`DateTimeOffset now` passed in from `TimeProvider`).
 - `Submit` only by a Claimant actor; incident date ≤ UTC today + 1 day (markets are ahead of UTC; no per-market time zones).
 - ClaimedAmount is informational; only Reserve / ApprovedAmount drive exposure.
-- Who may act (owner, assigned staff, manager) is enforced in the application layer: non-owning claimant → 404; unassigned ClaimStaff → 403.
+- Who may act is enforced in the application layer (`ClaimAccess` act rules): non-owning claimant → 404; unassigned ClaimStaff → 403; staff assign only themselves; assignees must be ClaimStaff/ClaimManager accounts (422).
 
 ## Glossary
 - **Reserve**: insurer's estimate of what it will pay, set by staff.

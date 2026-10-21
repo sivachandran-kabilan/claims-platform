@@ -48,6 +48,9 @@ public sealed class Claim : AggregateRoot
     public DateTimeOffset SubmittedAt { get; private set; }
     public DateTimeOffset? DecidedAt { get; private set; }
 
+    /// <summary>Set by every action, so the claim row (and its rowversion/ETag) changes even when only child rows are added.</summary>
+    public DateTimeOffset UpdatedAt { get; private set; }
+
     public IReadOnlyCollection<InformationRequest> InformationRequests => _informationRequests;
     public IReadOnlyCollection<DocumentReference> Documents => _documents;
     public IReadOnlyCollection<ClaimHistoryEntry> History => _history;
@@ -270,8 +273,11 @@ public sealed class Claim : AggregateRoot
 
     private void Record(
         ClaimAction action, Actor actor, DateTimeOffset now, ClaimStatus? from = null, ClaimStatus? to = null,
-        string? reason = null, decimal? amount = null, Guid? targetUserId = null) =>
+        string? reason = null, decimal? amount = null, Guid? targetUserId = null)
+    {
         _history.Add(new ClaimHistoryEntry(_history.Count + 1, action, from, to, actor, now, reason, amount, targetUserId));
+        UpdatedAt = now;
+    }
 
     private void Close(string reason, DateTimeOffset now)
     {

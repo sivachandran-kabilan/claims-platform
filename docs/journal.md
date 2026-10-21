@@ -298,3 +298,45 @@ History of prompts and AI decisions for the assessment panel. Append only; do no
   1. Submit → notification "has been received" within 8 s. The envelope on `claims.events` has key = claimId and fields `eventId, type, version, occurredAt, claimId, payload`; no PII on the topic; consumer lag 0. Earlier backlog rows were published on startup.
   2. `docker compose stop kafka`, submit → the claim was accepted (201) and the outbox row stayed unprocessed with `Attempts=2`, `LastError=ProduceException… Message timed out`. `docker compose start kafka` → processed (`Attempts=3`) and the claimant notified (AC-EVT-2).
   3. Sent `poison-key|this is not json` to `claims.events` → it appeared on `claims.events.dlt` with `x-error-type:Unparseable`, `x-original-topic:claims.events`, and the original key and value (AC-EVT-3).
+
+---
+
+## PROMPT8: Slice 7, workload and exposure reports (2026-10-21)
+
+**Started:** 2026-10-21 09:26 +05:30 (plan requested) · **Finished:** 2026-10-21 09:36 +05:30 · **Time spent:** ~10 min (planned 25 min)
+
+**Asked:** First, list everything still pending (answered: reports, OpenAPI export, Angular app, final README, clean-run check, journal; branch-name question still open). Then present the slice 7 plan and, after my OK, build it.
+
+### 1. What I directed the AI to do
+- Build the manager reports exactly as defined in Prompt 1:
+  - Workload per assignee plus the unassigned queue (staff see only their own row).
+  - Liability exposure on open claims in native currency (manager only).
+- Use SQL projections only.
+
+### 2. What I accepted
+- **An `IReportQueries` port implemented in Infrastructure,** because average age needs SQL Server's `DATEDIFF` (`EF.Functions.DateDiffHour`). This keeps Application provider-neutral instead of adding the SQL Server package to it.
+- **Workload:**
+  - Rows for every ClaimStaff and ClaimManager account; managers see accounts with no claims.
+  - Staff get their own row plus the queue.
+  - Open = UnderReview/InfoRequested/Approved; ages in days from submission (1 dp); oldest claim number + age.
+  - Queue = Submitted.
+- **Exposure:**
+  - Groups by market, type, status and currency over non-Rejected/Settled claims: sum of `OutstandingReserve`, claim count, unreserved count.
+  - Submitted claims are included (0 outstanding); totals are per currency only.
+- **No paging:** exposure has ≤ 48 rows; paging workload is logged as a gap.
+
+### 3. What I challenged
+- Nothing this round; I accepted the plan as presented.
+- **Raised by the AI during verification:**
+  - The first attempt to log SQL failed because bash rejects dots in inline environment-variable names; rerun with `env '…=…'`.
+  - Two mutation attempts didn't compile (an unused-parameter warning-as-error, then an inline `//` that commented out the rest of the line), so their "passing" tests ran old binaries. The AI noticed, did not count them, and reran with a mutation that compiles.
+
+### 4. What I overrode / cut for time
+- **Cut:** USD total (already cut in Prompt 1); report filters; workload paging.
+
+**Verification:**
+- `dotnet build -warnaserror` succeeded.
+- `dotnet test`: 421 passed (120 domain, 45 application, 256 integration).
+- **Generated SQL (EF command log):** `GROUP BY [c].[AssignedToUserId]`, `GROUP BY` market/type/status/currency, `GROUP BY` for the queue, and `DATEDIFF(hour, [c].[SubmittedAt], @__now_1)` computed in the database. No entity loading.
+- **Mutation:** dropping the staff scoping (staff get every row) made `Workload_Staff_SeesOnlyOwnRowAndQueue` and `Handle_AsStaff_QueriesOnlyOwnUserId` fail; the file was then restored.
+- **Manual:** `manager@test.com` called both endpoints against the dev DB and got the expected shapes (seeded staff/manager rows with zero claims; Submitted claims as unreserved exposure rows in SGD/AUD/THB).

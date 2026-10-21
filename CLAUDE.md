@@ -148,7 +148,7 @@ Every state change writes a status-history/audit row (who, when, from, to, reaso
 - No PII beyond what consumers need in event payloads (no national ID, address, full contact details).
 
 ## Reports (ClaimManager only unless noted)
-- **Workload:** per staff member: open claims by status, average age, oldest claim; plus the unassigned queue. ClaimStaff may read their own row only; ClaimManager reads all.
+- **Workload:** per staff member: open claims by status, average age, oldest claim; plus the unassigned queue. ClaimStaff may read their own row only (plus the queue); ClaimManager reads all, including staff with no claims.
 - **Liability exposure:** sum of outstanding reserve on **open** claims (not Rejected/Settled), grouped by market, claim type, and status, in native currency. If a USD total is shown, FX rates come from configuration and are labeled illustrative.
 - Compute with SQL projections (`Select`, `GroupBy`). Never load full aggregates or audit trails to build a report.
 

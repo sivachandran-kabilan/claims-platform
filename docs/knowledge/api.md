@@ -30,6 +30,8 @@ Auth: JWT bearer (`src/Claims.Api/Auth/AuthSetup.cs`). Fallback policy requires 
 | POST | /claims/{id}/reject-no-response | Staff (assigned) / Manager | none | 200 | 403, 404, 409, 412, 422 (< 15 days), 428 |
 | POST | /claims/{id}/settle | Staff (assigned) / Manager | `{amount}` (≤ approved) | 200 | 400, 403, 404, 409, 412, 422, 428 |
 | GET | /notifications/mine | Claimant | n/a | 200 `NotificationResponse[]` (own, latest 50, newest first; not paged) | 401, 403 |
+| GET | /reports/workload | Staff (ClaimStaff: own row only) / Manager (all) | n/a | 200 `WorkloadReport {generatedAt, staff[], unassigned}` | 401, 403 |
+| GET | /reports/exposure | Manager | n/a | 200 `ExposureReport {generatedAt, rows[], totals[]}` | 401, 403 |
 | POST | /claims/{id}/documents | Owner / assigned staff / manager | `{fileName, contentType (pdf/jpeg/png), sizeBytes (≤20 MB), storageRef}` | 201 detail + `Location` (claim) + ETag | 400, 403, 404, 409, 412, 428 |
 
 Claims (`src/Claims.Api/Controllers/ClaimsController.cs`, read model `src/Claims.Application/Claims/Common/ClaimReadModel.cs`):
@@ -37,6 +39,11 @@ Claims (`src/Claims.Api/Controllers/ClaimsController.cs`, read model `src/Claims
 - `ETag` = `"<base64 rowversion>"` (strong). Every action needs `If-Match` with it: missing → 428; stale, weak `W/`, `*` or malformed → 412. Every action changes the ETag (`Claim.UpdatedAt` is stamped on every action).
 - **Action check order** (`src/Claims.Application/Claims/Workflow/ClaimWorkflow.cs`): 400 body → 428 → 404 (not visible) → 403 (act rule, `ClaimAccess`) → 412 → 409/422 (domain) → save (EF rowversion check, race → 412). Actions return 200 with the updated detail (viewer's view) + new ETag.
 - **Claimant view** (approved slice 4): `reserve`, `outstandingReserve`, `assignedToUserId`, actor/target/uploader ids are null; `SetReserve` and `Reassign` history entries are hidden. Information requests on a closed claim show state `Unanswered`.
+
+Reports (`src/Claims.Application/Reports/Reports.cs`, SQL in `src/Claims.Infrastructure/Reports/ReportQueries.cs`):
+- **Workload**: one row per ClaimStaff/ClaimManager account (zero rows included for managers' view): open = UnderReview/InfoRequested/Approved counts, `averageAgeDays` and `oldestAgeDays` from `SubmittedAt` (1 dp), `oldestClaimNumber`. `unassigned` = Submitted claims (count, average/oldest age). Not paged (one row per staff account).
+- **Exposure**: rows grouped by market, type, status, currency over open claims (not Rejected/Settled): `outstandingReserve` (sum of `OutstandingReserve`: reserve, or approved amount once approved, 0 when Submitted), `claimCount`, `unreservedCount`. `totals` per currency only; never across currencies. ≤ 48 rows.
+- Both are GROUP BY projections (DATEDIFF in SQL); no aggregates or history loaded.
 
 Exceptions to conventions: register and POST /users take no `Idempotency-Key` and return 201 with a body but no `Location` (slice 2; unique email makes retries safe → 409). POST /claims/{id}/documents takes `If-Match` instead of `Idempotency-Key` (slice 5; a blind retry gets 412, not a duplicate) and its `Location` is the claim.
 Rate limit: policy `auth`, fixed window 10/min per client IP (`RateLimiting:AuthPermitLimit`).

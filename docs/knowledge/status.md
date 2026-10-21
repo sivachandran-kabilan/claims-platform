@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-10-21 09:24 +05:30 after slice 6 (Kafka relay + notifications)
+Last updated: 2026-10-21 09:36 +05:30 after slice 7 (reports)
 
 ## Done
 - Prompt 1: design review. ADRs 001–007, domain, acceptance criteria, events catalog (planned).
@@ -10,14 +10,15 @@ Last updated: 2026-10-21 09:24 +05:30 after slice 6 (Kafka relay + notifications
 - Slice 4: claims persistence + API. EF mapping (rowversion shadow, ClaimNumbers sequence, indexes), outbox write in SaveChangesAsync, idempotent submit, GET by id (ETag, claimant view), mine, list (filters/sort/paging), queue. Migration `AddClaims`. 254 tests green (AC-CLM-1, AC-CLM-2, AC-CLM-9, AC-EVT-1).
 - Slice 5: workflow. 10 action endpoints over one `ClaimWorkflow` runner (428 → 404 → 403 → 412 → domain), act rules, assignee check, `Claim.UpdatedAt` (ETag always changes), migration `AddClaimUpdatedAt`. 380 tests green (AC-CLM-3..8, 10..13, AC-X-1).
 - Slice 6: messaging. Outbox relay → Kafka (`claims.events`, key claimId), notification consumer (manual commit, retry → DLT, idempotent on eventId), `GET /notifications/mine`. Migration `AddNotifications`. 402 tests green (AC-EVT-2/3/4, AC-NOT-1); broker down/up and poison → DLT verified manually.
+- Slice 7: reports. `GET /reports/workload` (staff own row + queue; manager all incl. zero) and `GET /reports/exposure` (manager), GROUP BY projections behind `IReportQueries` (Infrastructure, DATEDIFF). 421 tests green (AC-RPT-1, AC-RPT-2). **Backend feature-complete.**
 
 ## In progress
 - (none)
 
 ## Next (in order; estimates)
-1. Reports: workload, exposure (20m)
-2. OpenAPI spec commit, Swagger filters (If-Match, Idempotency-Key), README (10m)
-3. Angular: auth + claimant flow, then staff queue/actions (50m)
+1. OpenAPI spec commit, Swagger filters (If-Match, Idempotency-Key), README (10m)
+2. Angular: scaffold + generated client, auth, claimant flow, staff queue/actions, manager dashboard (60m)
+3. Final README (architecture, REST vs Kafka, AC → tests table, gaps), clean-run check, final journal (25m)
 
 ## Cut order if behind
 1. Staff frontend → 2. `GET /users` → 3. Documents → 4. Reassign endpoint → 5. DLT (log only) → 6. Reject-no-response endpoint.
@@ -37,6 +38,7 @@ Never cut: auth + fallback policy, single transition method, outbox, role-matrix
 - Handlers are covered by integration tests, not mocked unit tests (no in-memory EF provider approved).
 - Register and POST /users: no Idempotency-Key, no Location header (approved exception).
 - Rate limit is per IP, in memory; lockout 15 min. Common-password list is tiny (no breach corpus).
+- Workload report is not paged (one row per staff/manager account); page it if staff grows large.
 - Incident date allows UTC today + 1 day (markets ahead of UTC); no per-market time zones.
 - Dev DB is `ClaimsPlatformDev` because a pre-existing `TEST` database on the local instance owns `ClaimsPlatform.mdf`.
 

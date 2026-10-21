@@ -59,6 +59,10 @@ public static class RoleMatrix
         Action("documents", AnyUser),
 
         new("GET", "api/v1/notifications/mine", "/api/v1/notifications/mine", ClaimantOnly),
+
+        // Reports. Workload: staff pass the policy and get their own row only (tested in ReportTests).
+        new("GET", "api/v1/reports/workload", "/api/v1/reports/workload", StaffAndManager),
+        new("GET", "api/v1/reports/exposure", "/api/v1/reports/exposure", ManagerOnly),
     ];
 
     private static Row Action(string action, Caller[] allowed) =>

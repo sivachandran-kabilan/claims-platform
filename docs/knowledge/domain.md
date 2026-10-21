@@ -38,6 +38,6 @@ Terminal: Rejected, Settled. Wrong status → `InvalidTransitionException` (409)
 ## Glossary
 - **Reserve**: insurer's estimate of what it will pay, set by staff.
 - **Outstanding reserve**: amount still expected to be paid on an open claim.
-- **Exposure**: sum of outstanding reserve on open claims (not Rejected/Settled).
+- **Exposure**: sum of `OutstandingReserve` on open claims (not Rejected/Settled), per market/type/status/currency; Submitted claims count as unreserved with 0 outstanding.
 - **Settlement**: the single recorded payment.
-- **Open (workload)**: UnderReview, InfoRequested, Approved. **Queue**: Submitted (unassigned).
+- **Open (workload)**: UnderReview, InfoRequested, Approved, per assignee; age measured from submission. **Queue**: Submitted (always unassigned).

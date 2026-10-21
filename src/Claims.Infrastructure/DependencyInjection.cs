@@ -1,7 +1,9 @@
 using Claims.Application.Claims.Common;
 using Claims.Application.Common.Messaging;
 using Claims.Application.Common.Persistence;
+using Claims.Application.Reports;
 using Claims.Infrastructure.Messaging;
+using Claims.Infrastructure.Reports;
 using Confluent.Kafka;
 using Claims.Application.Identity;
 using Claims.Infrastructure.Identity;
@@ -27,6 +29,7 @@ public static class DependencyInjection
             connectionString, sql => sql.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)));
         services.AddScoped<IClaimsDbContext>(sp => sp.GetRequiredService<ClaimsDbContext>());
         services.AddScoped<IClaimNumberGenerator, ClaimNumberGenerator>();
+        services.AddScoped<IReportQueries, ReportQueries>();
 
         services
             .AddIdentityCore<ApplicationUser>(options =>

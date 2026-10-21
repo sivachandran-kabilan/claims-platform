@@ -19,10 +19,10 @@ Current-state documentation of this project, written for Claude (and humans). **
 - `src/Claims.Infrastructure`: `Persistence/ClaimsDbContext` (IdentityDbContext + IClaimsDbContext; SaveChangesAsync writes the outbox), `OutboxWriter`, `ClaimNumberGenerator`, `Reports/ReportQueries` (GROUP BY SQL, DATEDIFF), `Messaging/` (KafkaOptions, KafkaEventPublisher, KafkaDeadLetterPublisher, OutboxProcessor, MessageDispatcher, OutboxRelay + NotificationConsumer background services), `Persistence/Configurations`, `Persistence/Migrations`, `Identity/` (ApplicationUser, IdentityService, CommonPasswordValidator, DevUserSeeder), `AddInfrastructure()`.
 - `src/Claims.Api`: `Program.cs`, `Auth/` (AuthSetup: JWT bearer, policies, rate limiter; JwtTokenGenerator; CurrentUser), `Controllers/` (Auth, Users, Claims, ClaimActions, Notifications, Reports), `Errors/GlobalExceptionHandler`. http://localhost:5000.
 - `tests/Claims.Api.IntegrationTests/Infrastructure`: `ClaimsApiFactory` (environment `Testing`, throwaway migrated DB, test JWT key, user/token helpers), `TestTokens` (bad tokens), `ClaimRequests` (submit helpers), `ClaimActions` (act/ETag helpers, `ArrangeClaimAsync(status)`). `RoleMatrixTests.cs` holds the matrix rows; `Claims/` holds claim API + persistence tests; `Messaging/` holds relay, consumer, dispatcher and notification tests (fake publisher, no broker); `Reports/` holds report tests (seeded backdated claims, before/after deltas).
-- `web/`: not created yet (slice 9).
+- `web/` (Angular 22): `src/app/api/` generated client (ng-openapi-gen from `docs/openapi.json`; don't edit), `core/` (AuthService: token signal + sessionStorage, interceptor 401/403, roleGuard, NoticeService/ProblemDetails), `features/` (auth, claimant, claims/claim-detail shared by all roles, staff, manager), `app.routes.ts` (lazy routes + guards), `environments/` (apiBaseUrl).
 
 ## How to run
-See `README.md`: `docker compose up -d`, `dotnet tool restore`, user-secrets (`ConnectionStrings:Claims` → `ClaimsPlatformDev`, `Jwt:Key`, `Seed:*`), `dotnet ef database update`, `dotnet run --project src/Claims.Api`.
+See `README.md`: `docker compose up -d`, `dotnet tool restore`, user-secrets (`ConnectionStrings:Claims` → `ClaimsPlatformDev`, `Jwt:Key`, `Seed:*`), `dotnet ef database update`, `dotnet run --project src/Claims.Api`; `cd web && npm ci && npx ng serve`.
 
 ## Rules for keeping this accurate
 1. Update the affected files in the same commit as the code change.

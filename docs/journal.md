@@ -340,3 +340,92 @@ History of prompts and AI decisions for the assessment panel. Append only; do no
 - **Generated SQL (EF command log):** `GROUP BY [c].[AssignedToUserId]`, `GROUP BY` market/type/status/currency, `GROUP BY` for the queue, and `DATEDIFF(hour, [c].[SubmittedAt], @__now_1)` computed in the database. No entity loading.
 - **Mutation:** dropping the staff scoping (staff get every row) made `Workload_Staff_SeesOnlyOwnRowAndQueue` and `Handle_AsStaff_QueriesOnlyOwnUserId` fail; the file was then restored.
 - **Manual:** `manager@test.com` called both endpoints against the dev DB and got the expected shapes (seeded staff/manager rows with zero claims; Submitted claims as unreserved exposure rows in SGD/AUD/THB).
+
+---
+
+## PROMPT9: Slice 8, OpenAPI spec + Angular frontend (2026-10-21)
+
+**Started:** 2026-10-21 09:41 +05:30 (plan requested) · **Finished:** 2026-10-21 09:55 +05:30 · **Time spent:** ~14 min (planned 80 min)
+
+**Asked:** Present the slice 8 plan (export the OpenAPI spec, Angular app with generated client, auth, claimant/staff/manager pages). After my OK, build it.
+
+### 1. What I directed the AI to do
+- Commit the OpenAPI spec and generate the Angular client from it.
+- Build one Angular app for three roles: standalone components, lazy routes, role guards (UX only), an interceptor for the bearer token / 401 / 403, and token storage per CLAUDE.md.
+- Cover the claimant flow, the staff queue and actions, and the manager dashboard.
+
+### 2. What I accepted
+- Angular 22.2 (latest; Node 24.18 supported), created with `--skip-tests` because the frontend criteria are manual. `ng-openapi-gen` 1.1.0 (approved) as an exact-pinned dev dependency.
+- The generated client is committed in `web/src/app/api/`; `npm run gen:api` regenerates it from `docs/openapi.json`. Calls go through `Api.invoke(fn, params)`, and `invoke$Response` gives access to the ETag.
+- One claim-detail page for every role. Actions are shown by role, status and assignment (UX only). `If-Match` comes from the GET's ETag; a 412 shows "changed by someone else" and reloads.
+- Token in a signal with `sessionStorage` as the reload fallback, decoded with `atob` (no package). An expired token is cleared, a 401 logs out to `/login?returnUrl=`, and a 403 shows a message. The XSS trade-off is documented in the README.
+- Each Report-a-claim form gets its own `crypto.randomUUID()` Idempotency-Key, so a double submit returns the same claim.
+- Not built: an OpenAPI drift test (Swagger stays Development-only) and a staff-account admin page (use Swagger `POST /users`).
+
+### 3. What I challenged
+- Nothing this round; I accepted the plan. I didn't answer the "drive Chrome" question, so the AI fell back to a written click-through script for me (below) rather than automating the browser.
+- **Raised by the AI during the build:**
+  - The generated client sent bodies as `application/*+json` (the last content type Swashbuckle listed). The AI restricted the API's JSON input formatter to `application/json` in one place: the spec, client and server now agree, and other content types get 415. All 421 tests still pass.
+  - Generated models mark every field optional (Swashbuckle doesn't emit `required`). Accepted for time; templates use `?.`/`??`. Logged as a gap.
+
+### 4. What I overrode / cut for time
+- **Cut:** frontend automated tests; a staff/user admin page; an OpenAPI drift test; required-field typing in the generated models; real file upload (document metadata only, `storageRef` generated).
+
+**Verification:**
+- Exported spec: 23 operations; operation ids = route names; `If-Match`/`Idempotency-Key` header params present; enums as strings; command bodies without route id/If-Match; bearer scheme.
+- `npx ng build` (production): clean, no warnings. One lazy chunk per page; initial bundle 83 kB transferred.
+- `dotnet test`: 421 passed after the JSON-only change.
+- **Smoke checks with the API on :5000 and `ng serve` on :4200:**
+  - The preflight from `http://localhost:4200` for `POST …/approve` with `authorization,content-type,if-match` → 204 with the matching allow headers.
+  - A foreign origin gets no `Access-Control-Allow-Origin`.
+  - `GET /claims/{id}` exposes `ETag`.
+  - Deep links (`/`, `/login`, `/claims/new`, `/manager/dashboard`) serve the app.
+
+**Manual click-through (AC-FE-1..4), to run by hand:** API (`dotnet run --project src/Claims.Api`, Kafka up) + `cd web && npx ng serve`, open http://localhost:4200.
+1. **AC-FE-4:** open `/manager/dashboard` logged out → redirected to `/login?returnUrl=/manager/dashboard`.
+2. **AC-FE-1 (claimant):**
+   1. Register a new account → "Account created", then log in → My claims.
+   2. Report a claim (Singapore, Motor) → the detail page shows `Submitted`, history row 1, currency SGD.
+   3. Notifications shows "received" within a few seconds.
+3. **AC-FE-2 (staff):**
+   1. Log in as `staff@test.com` → Queue → Assign to me → UnderReview.
+   2. Request information ("Photos?") → InfoRequested.
+4. **AC-FE-1 (respond):** as the claimant, open the claim → Send response → UnderReview; add a document (photo.jpg, JPEG, 200 KB).
+5. **AC-FE-2 (decide):**
+   1. As staff: Save reserve 1000 → Approve 1200 → error "cannot exceed the reserve" (422).
+   2. Approve 800 → Approved → Record settlement 800 → Settled; the actions panel disappears.
+6. **AC-FE-4 (403):**
+   1. As staff, keep an UnderReview claim assigned to you open.
+   2. In another browser profile, as `manager@test.com`, reassign it with Swagger `POST /claims/{id}/reassign` to a newly created staff user.
+   3. Back as staff, click Request information → "You do not have permission to do that." (the API checks 403 before 412).
+   4. Claimant isolation: opening another claimant's claim URL as a claimant → error message + redirect home (API 404).
+7. **AC-FE-3 (manager):** log in as `manager@test.com` → Dashboard shows the workload rows (Dev Staff counts), the queue line, exposure rows and per-currency totals.
+8. **Concurrency:** open the same UnderReview claim in two tabs as staff, approve in one, then try an action in the other → "changed by someone else", and the page reloads.
+
+---
+
+## PROMPT10: Bug fix, staff/manager couldn't open claims in the web app (2026-10-21)
+
+**Started:** 2026-10-21 09:58 +05:30 · **Finished:** 2026-10-21 10:01 +05:30 · **Time spent:** ~4 min
+
+### 1. What I directed the AI to do
+- "Manager is unable to view/edit claims, check auth guard." Found during my manual click-through of slice 8.
+
+### 2. What I accepted
+- **Root cause (frontend routing, not the API):**
+  - The Claimant-only route `{ path: 'claims', canMatch: [roleGuard('Claimant')] }` used Angular's default prefix match, so it also matched `/claims/<id>`.
+  - `canMatch` guards run as soon as a route's own path matches, before leftover segments are checked.
+  - The guard returned a `UrlTree` redirect for the wrong role, which stops matching. So every claim link for staff and managers bounced to their home page and the `claims/:id` route was never reached.
+- **Fix, two independent safeguards:**
+  - `pathMatch: 'full'` on every leaf route.
+  - `roleGuard` returns `false` (fall through to the next route; `**` sends the user home) instead of a redirect for the wrong role. Logged-out users still get a `UrlTree` to `/login?returnUrl=…`.
+
+### 3. What I challenged
+- **I challenged the slice 8 frontend:** the AI had built and smoke-checked it, but the smoke checks (build, CORS, deep links) never exercised in-app navigation per role, so this got through. The guard design ("wrong role → redirect home") was the AI's choice in the plan and was the actual defect.
+
+### 4. What I overrode / cut for time
+- No automated router test was added: the app was created with `--skip-tests` and has no test runner. The fix is verified by build and my manual re-test. A router test (`RouterTestingHarness`) is a "with more time" item.
+
+**Verification:**
+- `npx ng build` is clean; the dev server recompiled and reloaded.
+- Manual re-test by me: **pending**. Steps: as manager, open a claim from All claims/Queue and act on it; as staff, open a claim; `/claims` as manager → dashboard; logged-out deep link → login with returnUrl.

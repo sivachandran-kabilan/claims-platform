@@ -1,0 +1,38 @@
+/* Minimal styling (CLAUDE.md): readable tables and forms, no UI library. */
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #1f2933; background: #f7f8fa; }
+main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+h1 { font-size: 1.4rem; margin: 8px 0 16px; }
+h2 { font-size: 1.1rem; margin: 24px 0 8px; }
+
+.topbar { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; padding: 10px 16px; background: #1f3a5f; color: #fff; }
+.topbar nav { display: flex; gap: 12px; flex: 1; }
+.topbar a { color: #dbe7f5; text-decoration: none; }
+.topbar a.active { color: #fff; font-weight: 600; text-decoration: underline; }
+.topbar .user { font-size: 0.85rem; opacity: 0.85; }
+.topbar .link { color: #fff; }
+
+.notice { max-width: 1100px; margin: 12px auto 0; padding: 10px 14px; border-radius: 6px; background: #e3f6e8; border: 1px solid #9fd8ad; display: flex; justify-content: space-between; gap: 12px; }
+.notice.error { background: #fdecea; border-color: #f5b5ad; }
+
+table { width: 100%; border-collapse: collapse; background: #fff; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #e4e7eb; font-size: 0.9rem; vertical-align: top; }
+th { background: #eef1f5; }
+td.num, th.num { text-align: right; }
+
+.card { background: #fff; border: 1px solid #e4e7eb; border-radius: 6px; padding: 14px; margin-bottom: 14px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px 16px; }
+.muted { color: #616e7c; font-size: 0.85rem; }
+.status { display: inline-block; padding: 1px 8px; border-radius: 10px; background: #e4ecf7; font-size: 0.8rem; }
+
+form, .form { display: flex; flex-direction: column; gap: 10px; max-width: 480px; }
+.inline { flex-direction: row; flex-wrap: wrap; align-items: flex-end; max-width: none; }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; }
+input, select, textarea { padding: 6px 8px; border: 1px solid #cbd2d9; border-radius: 4px; font: inherit; }
+button { padding: 6px 14px; border: 0; border-radius: 4px; background: #1f6feb; color: #fff; font: inherit; cursor: pointer; }
+button:disabled { opacity: 0.5; cursor: default; }
+button.secondary { background: #616e7c; }
+button.danger { background: #c62828; }
+button.link { background: none; padding: 0; color: #1f6feb; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.pager { display: flex; gap: 8px; align-items: center; margin-top: 8px; }

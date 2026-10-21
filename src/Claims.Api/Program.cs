@@ -4,6 +4,7 @@ using Claims.Api.Errors;
 using Claims.Application;
 using Claims.Infrastructure;
 using Claims.Infrastructure.Identity;
+using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,8 +14,14 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddClaimsAuth(builder.Configuration);
 builder.Services.AddSingleton(TimeProvider.System);
 
+// Request bodies are application/json only (keeps the OpenAPI spec and generated client unambiguous).
 // Enums travel as names ("Motor", "Singapore"), matching how they are stored.
-builder.Services.AddControllers()
+builder.Services.AddControllers(options =>
+    {
+        var json = options.InputFormatters.OfType<SystemTextJsonInputFormatter>().Single();
+        json.SupportedMediaTypes.Clear();
+        json.SupportedMediaTypes.Add("application/json");
+    })
     .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();

@@ -1,6 +1,6 @@
 # API
 
-Base: `/api/v1`. Errors: RFC 7807 ProblemDetails (`application/problem+json`). State-changing calls need `If-Match`. POST create needs `Idempotency-Key` (claims only; see exceptions below).
+Base: `/api/v1`. Spec: `docs/openapi.json` (exported from Swagger in Development; operation ids = route names). Request bodies: `application/json` only (others → 415). Errors: RFC 7807 ProblemDetails (`application/problem+json`). State-changing calls need `If-Match`. POST create needs `Idempotency-Key` (claims only; see exceptions below).
 
 Error mapping (`src/Claims.Api/Errors/GlobalExceptionHandler.cs`): `ValidationException` → 400 with field errors; `AuthenticationFailedException` → 401 "Invalid credentials." (no detail); `NotFoundException` → 404; `ConflictException` / `InvalidTransitionException` → 409; `BusinessRuleException` → 422; anything else → generic 500 (type + stack trace logged, never the message). Bare 401/403/404/405/429 become ProblemDetails via `UseStatusCodePages`.
 

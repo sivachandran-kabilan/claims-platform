@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-10-21 09:36 +05:30 after slice 7 (reports)
+Last updated: 2026-10-21 09:55 +05:30 after slice 8 (OpenAPI + Angular)
 
 ## Done
 - Prompt 1: design review. ADRs 001–007, domain, acceptance criteria, events catalog (planned).
@@ -11,14 +11,13 @@ Last updated: 2026-10-21 09:36 +05:30 after slice 7 (reports)
 - Slice 5: workflow. 10 action endpoints over one `ClaimWorkflow` runner (428 → 404 → 403 → 412 → domain), act rules, assignee check, `Claim.UpdatedAt` (ETag always changes), migration `AddClaimUpdatedAt`. 380 tests green (AC-CLM-3..8, 10..13, AC-X-1).
 - Slice 6: messaging. Outbox relay → Kafka (`claims.events`, key claimId), notification consumer (manual commit, retry → DLT, idempotent on eventId), `GET /notifications/mine`. Migration `AddNotifications`. 402 tests green (AC-EVT-2/3/4, AC-NOT-1); broker down/up and poison → DLT verified manually.
 - Slice 7: reports. `GET /reports/workload` (staff own row + queue; manager all incl. zero) and `GET /reports/exposure` (manager), GROUP BY projections behind `IReportQueries` (Infrastructure, DATEDIFF). 421 tests green (AC-RPT-1, AC-RPT-2). **Backend feature-complete.**
+- Slice 8: OpenAPI spec committed (`docs/openapi.json`), JSON-only request bodies; Angular 22 app in `web/` with generated client, auth (interceptor, guards, token storage), claimant/staff/manager pages. `ng build` clean; CORS/ETag/routes smoke-checked. AC-FE-1..4 manual (steps in journal).
 
 ## In progress
 - (none)
 
 ## Next (in order; estimates)
-1. OpenAPI spec commit, Swagger filters (If-Match, Idempotency-Key), README (10m)
-2. Angular: scaffold + generated client, auth, claimant flow, staff queue/actions, manager dashboard (60m)
-3. Final README (architecture, REST vs Kafka, AC → tests table, gaps), clean-run check, final journal (25m)
+1. Final README (architecture, REST vs Kafka, AC → tests table, gaps), clean-run check, final journal (25m)
 
 ## Cut order if behind
 1. Staff frontend → 2. `GET /users` → 3. Documents → 4. Reassign endpoint → 5. DLT (log only) → 6. Reject-no-response endpoint.
@@ -38,6 +37,7 @@ Never cut: auth + fallback policy, single transition method, outbox, role-matrix
 - Handlers are covered by integration tests, not mocked unit tests (no in-memory EF provider approved).
 - Register and POST /users: no Idempotency-Key, no Location header (approved exception).
 - Rate limit is per IP, in memory; lockout 15 min. Common-password list is tiny (no breach corpus).
+- Frontend: no automated tests (criteria are manual; a router-guard bug that blocked staff/managers from claim pages was caught in manual testing and fixed); generated models mark all fields optional (Swashbuckle doesn't emit `required`); no staff-account admin page (use Swagger `POST /users`); no OpenAPI drift test (Swagger is Development-only).
 - Workload report is not paged (one row per staff/manager account); page it if staff grows large.
 - Incident date allows UTC today + 1 day (markets ahead of UTC); no per-market time zones.
 - Dev DB is `ClaimsPlatformDev` because a pre-existing `TEST` database on the local instance owns `ClaimsPlatform.mdf`.

@@ -1,0 +1,32 @@
+<header class="topbar">
+  <strong>APAC Claims</strong>
+  @if (auth.isLoggedIn()) {
+    <nav>
+      @if (auth.hasRole('Claimant')) {
+        <a routerLink="/claims" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">My claims</a>
+        <a routerLink="/claims/new" routerLinkActive="active">Report a claim</a>
+        <a routerLink="/notifications" routerLinkActive="active">Notifications</a>
+      }
+      @if (auth.hasRole('ClaimStaff', 'ClaimManager')) {
+        <a routerLink="/staff/queue" routerLinkActive="active">Queue</a>
+        <a routerLink="/staff/claims" routerLinkActive="active">All claims</a>
+      }
+      @if (auth.hasRole('ClaimManager')) {
+        <a routerLink="/manager/dashboard" routerLinkActive="active">Dashboard</a>
+      }
+    </nav>
+    <span class="user">{{ auth.email() }} ({{ auth.role() }})</span>
+    <button type="button" class="link" (click)="auth.logout()">Log out</button>
+  }
+</header>
+
+@if (notices.current(); as notice) {
+  <div class="notice" [class.error]="notice.kind === 'error'" role="status">
+    {{ notice.text }}
+    <button type="button" class="link" (click)="notices.dismiss()" aria-label="Dismiss">×</button>
+  </div>
+}
+
+<main>
+  <router-outlet />
+</main>

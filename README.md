@@ -41,6 +41,23 @@ They are for local development only. Self-registration always creates a Claimant
 
 The API refuses to start without a `Jwt:Key` of at least 32 bytes. If migrations are pending, seeding is skipped with a warning.
 
+## Web app (Angular)
+```bash
+cd web
+npm ci
+npx ng serve            # http://localhost:4200 (the API's CORS policy allows only this origin)
+```
+- Log in with the dev accounts above. Claimants land on **My claims**, staff on the **Queue**, managers on the **Dashboard**.
+- The typed API client in `web/src/app/api/` is generated from the committed OpenAPI spec and committed too:
+  ```bash
+  # 1. API running in Development:
+  curl -s http://localhost:5000/swagger/v1/swagger.json -o docs/openapi.json
+  # 2. Regenerate the client:
+  cd web && npm run gen:api
+  ```
+- Route guards and hidden buttons are UX only; the API enforces every permission.
+- **Token storage trade-off:** the access token is kept in memory, with `sessionStorage` as a reload fallback. Any script running on the page (XSS) could read it; the 15-minute lifetime limits the damage. Production would use an IdP with an httpOnly-cookie or BFF pattern.
+
 ## Kafka
 `docker compose up -d` starts Kafka (KRaft) on `localhost:9092`, creates `claims.events` (3 partitions) and `claims.events.dlt`, and serves Kafka UI on http://localhost:8080.
 The API publishes from the outbox every 2 s and consumes its own events to create claimant notifications (`GET /api/v1/notifications/mine`).

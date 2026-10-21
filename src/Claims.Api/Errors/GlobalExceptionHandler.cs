@@ -1,3 +1,4 @@
+using Claims.Application.Common.Exceptions;
 using Claims.Domain.Common;
 using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
@@ -7,7 +8,8 @@ namespace Claims.Api.Errors;
 
 /// <summary>
 /// Maps exceptions to RFC 7807 ProblemDetails. Unknown exceptions become a generic 500;
-/// only the exception type is logged (no request data, so no PII).
+/// only the exception type and stack trace are logged (no message or request data, so no PII).
+/// The framework's own ExceptionHandlerMiddleware log is switched off in appsettings for the same reason.
 /// </summary>
 public sealed class GlobalExceptionHandler(
     IProblemDetailsService problemDetailsService,
@@ -25,6 +27,24 @@ public sealed class GlobalExceptionHandler(
             {
                 Status = StatusCodes.Status400BadRequest,
                 Title = "One or more validation errors occurred.",
+            },
+            AuthenticationFailedException => new ProblemDetails
+            {
+                // Identical for every login failure; no detail on purpose.
+                Status = StatusCodes.Status401Unauthorized,
+                Title = "Invalid credentials.",
+            },
+            NotFoundException => new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "The resource was not found.",
+                Detail = exception.Message,
+            },
+            ConflictException => new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "The request conflicts with existing data.",
+                Detail = exception.Message,
             },
             InvalidTransitionException => new ProblemDetails
             {
@@ -47,7 +67,9 @@ public sealed class GlobalExceptionHandler(
 
         if (problem.Status == StatusCodes.Status500InternalServerError)
         {
-            logger.LogError("Unhandled exception of type {ExceptionType}", exception.GetType().FullName);
+            // Type and stack trace only: exception messages can carry data values (e.g. a duplicate email).
+            logger.LogError("Unhandled exception {ExceptionType}{NewLine}{StackTrace}",
+                exception.GetType().FullName, Environment.NewLine, exception.StackTrace);
         }
 
         httpContext.Response.StatusCode = problem.Status!.Value;

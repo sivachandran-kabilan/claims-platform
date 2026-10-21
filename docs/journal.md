@@ -85,3 +85,46 @@ History of prompts and AI decisions for the assessment panel. Append only; do no
 - `docker compose up -d`: Kafka healthy, both topics listed, Kafka UI returns 200 on :8080.
 - `dotnet ef dbcontext info` resolves the context against `localhost/ClaimsPlatform`.
 - `dotnet run`: `/health` returns 200 `Healthy`, an unknown route returns 404 `application/problem+json`, and Swagger JSON returns 200 in Development.
+
+---
+
+## PROMPT3: Slice 2, identity (2026-10-21)
+
+**Started:** 2026-10-21 08:07 +05:30 · **Finished:** 2026-10-21 08:21 +05:30 · **Time spent:** ~16 min (planned 45 min)
+
+**Asked:** Plan the Identity module, seeding the CLAUDE.md test accounts (manager, staff, user) as dev users. After approval, build it.
+
+### 1. What I directed the AI to do
+- Use the CLAUDE.md test credentials to seed manager, staff and claimant accounts in Development.
+- Present an Identity plan (register, login, me, users, JWT, fallback policy, lockout, rate limit, role-matrix test), then build it after my "proceed".
+
+### 2. What I accepted
+- Seed credentials stay out of source. `DevUserSeeder` reads `Seed:Manager|Staff|Claimant` from user-secrets, and the AI set those secrets to the CLAUDE.md accounts. A Claimant seed was added, since CLAUDE.md only mentioned manager and staff.
+- Roles seeded by migration (`HasData`, fixed ids) in every environment. Users seeded only in Development. Migrations applied manually; the seeder skips with a warning if they're pending.
+- Register and `POST /users` are exempt from `Idempotency-Key` and `Location`, because the unique email makes retries safe (409).
+- Rate limit of 10 requests/min per IP on register and login. Lockout of 15 min after 5 failures.
+- Guid Identity keys. User and role inserted in one transaction. `SignInManager.CheckPasswordSignInAsync` for lockout-aware checks. A dummy hash check for unknown emails (timing). A small common-password list.
+- Token issuing in the API next to bearer validation. `JwtOptions` validated at startup (key ≥ 32 bytes, lifetime ≤ 15 min). `ValidAlgorithms = [HS256]` rejects `alg=none`.
+- Role-matrix test as data, plus `EveryEndpoint_HasMatrixRow`, which fails the build if an endpoint has no row.
+
+### 3. What I challenged
+- Nothing this round; I accepted the plan as presented.
+- **Raised by the AI during the build:**
+  - The CLAUDE.md test passwords equal their emails, so a "password ≠ email" rule can't be added. Recorded as a dev-only trade-off in ADR 004.
+  - Adding the fallback policy changed a slice-1 test: anonymous requests to unknown URLs now get 401, not 404. The AI split the test (anonymous → 401, authenticated → 404) rather than weakening it, and recorded the behaviour in ADR 004.
+
+### 4. What I overrode / cut for time
+- **Dev DB renamed to `ClaimsPlatformDev`.** A pre-existing `TEST` database on the local instance owns `ClaimsPlatform.mdf`. The AI left `TEST` untouched and changed our database name instead (CLAUDE.md, README and status updated).
+- **Cut / deferred:** refresh tokens, breached-password corpus, distributed rate limiting, `GET /users/{id}`.
+
+**Issues hit during the build (fixed):**
+- `dotnet user-secrets init` had left the Api csproj messy; rewritten cleanly.
+- The first manual run returned 500 on login. EF couldn't translate a filter applied after projecting into a record constructor; fixed by filtering on entity columns and projecting last.
+- The same run showed ASP.NET's `ExceptionHandlerMiddleware` logging full exception messages, which can contain data such as emails. That log is disabled, and our handler logs type + stack trace only.
+- A `.Result` call slipped into a test and was replaced with `await` (CLAUDE.md forbids `.Result`).
+
+**Verification:**
+- `dotnet build -warnaserror` succeeded.
+- `dotnet test`: 68 passed (13 unit, 55 integration). The throwaway test databases were dropped afterwards (0 left).
+- Mutation check: deleting the `GET /users` matrix row makes `EveryEndpoint_HasMatrixRow` fail and name the endpoint; the row was then restored.
+- Manual run: all three seeded accounts log in, `/auth/me` returns the right role, the manager lists users (200), staff get 403, and an anonymous `/me` gets 401. The API log has no failures and no emails.

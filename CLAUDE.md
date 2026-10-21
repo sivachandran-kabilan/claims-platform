@@ -73,14 +73,15 @@ dotnet ef migrations add <Name> -p src/Claims.Infrastructure -s src/Claims.Api -
 dotnet ef database update -p src/Claims.Infrastructure -s src/Claims.Api
 docker compose up -d          # Kafka (+ Kafka UI)
 dotnet user-secrets set "Jwt:Key" "<32+ byte random string>" --project src/Claims.Api
-dotnet user-secrets set "ConnectionStrings:Claims" "Server=localhost;Database=ClaimsPlatform;Integrated Security=true;TrustServerCertificate=true" --project src/Claims.Api
-dotnet user-secrets set "Seed:Manager:Email" "<email>" --project src/Claims.Api   # + Seed:Manager:Password, Seed:Staff:Email/Password
+dotnet user-secrets set "ConnectionStrings:Claims" "Server=localhost;Database=ClaimsPlatformDev;Integrated Security=true;TrustServerCertificate=true" --project src/Claims.Api
+dotnet user-secrets set "Seed:Manager:Email" "<email>" --project src/Claims.Api   # + Seed:Manager:Password, Seed:Staff:Email/Password, Seed:Claimant:Email/Password
 dotnet run --project src/Claims.Api
 cd web && npm ci && npx ng serve   # npm run gen:api regenerates the typed client from docs/openapi.json
 ```
 Run `dotnet build` and `dotnet test` after every change. Fix failures before reporting done.
 
 ## Test Accounts [email:password]
+Development only. Seeded at startup by `DevUserSeeder` from user-secrets (`Seed:Manager|Staff|Claimant`), not from source.
 manager@test.com:manager@test.com
 staff@test.com:staff@test.com
 user@test.com:user@test.com
@@ -167,11 +168,11 @@ Real registration, login, and JWT validation implemented in an Identity module. 
 
 ### Services and endpoints
 - `IIdentityService` (Application port) with Register, Login, GetCurrentUser. Implemented in Infrastructure using ASP.NET Core Identity (`UserManager`, `PasswordHasher`). Never write custom password hashing.
-- `POST /api/v1/auth/register`: public. Creates a user with role **`Claimant` only**. The request has no role field, and any role supplied is ignored/rejected. Returns 201 with no token; the frontend redirects to login.
+- `POST /api/v1/auth/register`: public. Creates a user with role **`Claimant` only**. The request has no role field, and any role supplied is ignored/rejected. Returns 201 with no token; the frontend redirects to login. Register and `POST /users` are exempt from `Idempotency-Key` and `Location` (unique email → 409 on retry; decided slice 2).
 - `POST /api/v1/auth/login`: public. Returns a short-lived JWT access token (15 min). Failure always returns the same generic 401 (no user enumeration). Lockout after 5 failed attempts. Rate-limit auth endpoints with the built-in rate limiter.
 - `GET /api/v1/auth/me`: any authenticated user. Returns id, display name, role.
 - `POST /api/v1/users`: **ClaimManager only.** Creates `ClaimStaff` or `ClaimManager` accounts. This is the only way staff accounts are created at runtime.
-- Dev seeding: on startup in Development only, seed one `ClaimManager` and one `ClaimStaff` from configuration (user-secrets), never hard-coded in source. Document the seeded accounts in the README without committing real passwords.
+- Dev seeding: on startup in Development only, seed one `ClaimManager`, one `ClaimStaff` and one `Claimant` from configuration (user-secrets), never hard-coded in source. Document the seeded accounts in the README without committing real passwords.
 - Refresh tokens: **cut candidate**. Skip unless time remains; state the gap in the README.
 
 ### JWT

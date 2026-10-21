@@ -1,18 +1,32 @@
+using System.Collections.Concurrent;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using Claims.Application.Identity;
+using Claims.Application.Identity.Login;
 using Claims.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Claims.Api.IntegrationTests.Infrastructure;
 
+public sealed record TestUser(Guid Id, string Email, string Password, string Role);
+
 /// <summary>
 /// Hosts the API in memory against a throwaway database on the local SQL Server instance (ADR 007).
-/// One database per test run; dropped when the run finishes.
+/// One database per factory instance, migrated on start and dropped at the end.
 /// Override the server with the CLAIMS_TEST_SQLSERVER environment variable.
 /// </summary>
-public sealed class ClaimsApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
+public class ClaimsApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
+    public const string TestJwtIssuer = "claims-platform";
+    public const string TestJwtAudience = "claims-platform-web";
+    public const string TestJwtKey = "integration-tests-only-signing-key-0123456789";
+    public const string TestPassword = "Integration-Pass-2026";
+
     private readonly string _connectionString;
+    private readonly ConcurrentDictionary<string, string> _tokensByRole = new();
 
     public ClaimsApiFactory()
     {
@@ -21,24 +35,70 @@ public sealed class ClaimsApiFactory : WebApplicationFactory<Program>, IAsyncLif
         _connectionString = $"Server={server};Database={database};Integrated Security=true;TrustServerCertificate=true";
     }
 
+    /// <summary>Requests per minute per IP on auth endpoints. High by default: all test requests share one "IP".</summary>
+    protected virtual int AuthPermitLimit => 10_000;
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         // "Testing" keeps Development-only features (Swagger, user-secrets, dev seeding) out of tests.
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:Claims", _connectionString);
+        builder.UseSetting("Jwt:Issuer", TestJwtIssuer);
+        builder.UseSetting("Jwt:Audience", TestJwtAudience);
+        builder.UseSetting("Jwt:Key", TestJwtKey);
+        builder.UseSetting("RateLimiting:AuthPermitLimit", AuthPermitLimit.ToString());
     }
 
-    public Task InitializeAsync() => Task.CompletedTask;
+    public async Task InitializeAsync()
+    {
+        await using var scope = Services.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<ClaimsDbContext>().Database.MigrateAsync();
+    }
 
     public new async Task DisposeAsync()
     {
         await using (var scope = Services.CreateAsyncScope())
         {
-            var db = scope.ServiceProvider.GetRequiredService<ClaimsDbContext>();
-            await db.Database.EnsureDeletedAsync();
+            await scope.ServiceProvider.GetRequiredService<ClaimsDbContext>().Database.EnsureDeletedAsync();
         }
 
         await base.DisposeAsync();
+    }
+
+    /// <summary>Creates a user with the given role directly through the identity service (bypasses the API).</summary>
+    public async Task<TestUser> CreateUserAsync(string role)
+    {
+        var email = $"{role.ToLowerInvariant()}-{Guid.NewGuid():N}@test.local";
+        await using var scope = Services.CreateAsyncScope();
+        var identity = scope.ServiceProvider.GetRequiredService<IIdentityService>();
+        var user = await identity.CreateUserAsync(new NewUser(email, TestPassword, $"Test {role}", role), CancellationToken.None);
+        return new TestUser(user.Id, email, TestPassword, role);
+    }
+
+    public async Task<string> LoginAsync(TestUser user)
+    {
+        var response = await CreateClient().PostAsJsonAsync("/api/v1/auth/login", new { user.Email, user.Password });
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<LoginResponse>())!.AccessToken;
+    }
+
+    /// <summary>A client authenticated as a (cached, per-factory) user in the given role.</summary>
+    public async Task<HttpClient> CreateClientForRoleAsync(string role)
+    {
+        if (!_tokensByRole.TryGetValue(role, out var token))
+        {
+            token = await LoginAsync(await CreateUserAsync(role));
+            _tokensByRole[role] = token;
+        }
+
+        return CreateClientWithToken(token);
+    }
+
+    public HttpClient CreateClientWithToken(string token)
+    {
+        var client = CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return client;
     }
 }
 

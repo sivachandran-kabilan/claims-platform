@@ -1,11 +1,15 @@
+using Claims.Api.Auth;
 using Claims.Api.Errors;
 using Claims.Application;
 using Claims.Infrastructure;
+using Claims.Infrastructure.Identity;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddClaimsAuth(builder.Configuration);
 builder.Services.AddSingleton(TimeProvider.System);
 
 builder.Services.AddControllers();
@@ -21,12 +25,23 @@ builder.Services.AddCors(options => options.AddPolicy("web", policy => policy
     .WithExposedHeaders("ETag", "Location")));
 
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    var bearer = new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" },
+    };
+    options.AddSecurityDefinition("Bearer", bearer);
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement { [bearer] = [] });
+});
 
 var app = builder.Build();
 
 app.UseExceptionHandler();
-app.UseStatusCodePages(); // bare 404/405 responses become ProblemDetails
+app.UseStatusCodePages(); // bare 401/403/404/405/429 responses become ProblemDetails
 
 if (app.Environment.IsDevelopment())
 {
@@ -35,11 +50,20 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("web");
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapHealthChecks("/health").AllowAnonymous();
 app.MapControllers();
 
-app.Run();
+if (app.Environment.IsDevelopment())
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    await scope.ServiceProvider.GetRequiredService<DevUserSeeder>().SeedAsync(CancellationToken.None);
+}
+
+await app.RunAsync();
 
 // Exposed for WebApplicationFactory in the integration tests.
 public partial class Program;

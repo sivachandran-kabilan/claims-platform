@@ -1,23 +1,23 @@
 # Status
 
-Last updated: 2026-10-21 08:22 +05:30 after slice 2 (identity)
+Last updated: 2026-10-21 08:38 +05:30 after slice 3 (claim domain)
 
 ## Done
 - Prompt 1: design review. ADRs 001–007, domain, acceptance criteria, events catalog (planned).
 - Slice 1: scaffold. Solution with 4 src and 3 test projects; central package versions; SDK pinned; ProblemDetails error handling; validation pipeline; `/health`; Docker Compose with Kafka, topic init and UI; integration test host with a throwaway DB.
 - Slice 2: identity. Register, login, me, POST/GET users; JWT bearer + fallback policy + role policies; lockout; rate limit; roles seeded by migration `InitialIdentity`; dev users seeded from user-secrets; role-matrix test with endpoint-coverage guard. 68 tests green (AC-AUTH-1..4, AC-USR-2).
+- Slice 3: claim domain. `Claim` aggregate, action-keyed transition table, money rules, history, 4 domain events. 120 domain tests (188 total), including every action × status pair against an independent expected table.
 
 ## In progress
 - (none)
 
 ## Next (in order; estimates)
-1. Claim domain + state machine + domain tests (30m)
-3. Submit (idempotency), get (ETag), mine, list, queue (30m)
-4. Workflow commands with If-Match filter (40m)
-5. Outbox, relay, Kafka, notification consumer, notifications/mine (35m)
-6. Reports: workload, exposure (20m)
-7. OpenAPI spec commit, Swagger filters (bearer, If-Match, Idempotency-Key), README (10m)
-8. Angular: auth + claimant flow, then staff queue/actions (50m)
+1. EF mapping for Claim (rowversion, claim-number sequence, indexes), **outbox table write in the same SaveChanges** (moved forward from the relay slice), submit (idempotency), get (ETag), mine, list, queue (35m)
+2. Workflow commands with If-Match filter + `ClaimAccess` (who may act) (40m)
+3. Outbox relay, Kafka, notification consumer, notifications/mine (30m)
+4. Reports: workload, exposure (20m)
+5. OpenAPI spec commit, Swagger filters (If-Match, Idempotency-Key), README (10m)
+6. Angular: auth + claimant flow, then staff queue/actions (50m)
 
 ## Cut order if behind
 1. Staff frontend → 2. `GET /users` → 3. Documents → 4. Reassign endpoint → 5. DLT (log only) → 6. Reject-no-response endpoint.
@@ -32,6 +32,7 @@ Never cut: auth + fallback policy, single transition method, outbox, role-matrix
 - `/health` is liveness only (a DB check needs an unapproved package).
 - Register and POST /users: no Idempotency-Key, no Location header (approved exception).
 - Rate limit is per IP, in memory; lockout 15 min. Common-password list is tiny (no breach corpus).
+- Incident date allows UTC today + 1 day (markets ahead of UTC); no per-market time zones.
 - Dev DB is `ClaimsPlatformDev` because a pre-existing `TEST` database on the local instance owns `ClaimsPlatform.mdf`.
 
 ## Open questions

@@ -128,3 +128,40 @@ History of prompts and AI decisions for the assessment panel. Append only; do no
 - `dotnet test`: 68 passed (13 unit, 55 integration). The throwaway test databases were dropped afterwards (0 left).
 - Mutation check: deleting the `GET /users` matrix row makes `EveryEndpoint_HasMatrixRow` fail and name the endpoint; the row was then restored.
 - Manual run: all three seeded accounts log in, `/auth/me` returns the right role, the manager lists users (200), staff get 403, and an anonymous `/me` gets 401. The API log has no failures and no emails.
+
+---
+
+## PROMPT4: Slice 3, claim domain and state machine (2026-10-21)
+
+**Started:** 2026-10-21 08:26 +05:30 (plan requested) · **Finished:** 2026-10-21 08:36 +05:30 · **Time spent:** ~10 min (planned 30 min)
+
+**Asked:** Present the slice 3 plan (the Claim aggregate, state machine, money rules, events, domain tests). After my OK, build it.
+
+### 1. What I directed the AI to do
+- Plan, then build, the pure domain: the `Claim` aggregate with one method per action, the single status path, money rules, history and the four domain events. No API or database yet.
+- Prove every valid and invalid transition with tests.
+
+### 2. What I accepted
+- **Action-keyed transition table** `(action, current status) → new status` in `ClaimTransitions`, plus allowed-status sets for the actions that don't change status. All "what's allowed when" lives in one file.
+- **Amount storage:** one `Currency` column and plain 2-dp `decimal` amounts on the claim. `Money` is used only where an amount leaves the claim (events, DTOs, reports). Mixing currencies within a claim is impossible by construction; EF Core 8 can't map optional `Money` complex types cleanly.
+- Domain methods take `DateTimeOffset now` (supplied by the handler from `TimeProvider`), which keeps them pure and the tests clock-free.
+- The domain enforces status and money rules only. *Who* may act stays in the application layer (`ClaimAccess`, next slices).
+- The outbox **table write** moves forward to slice 4, so AC-CLM-1 passes completely there. The relay and Kafka stay later.
+- Reassigning to the current assignee → 422. The 15-day boundary counts exactly 15 days as allowed. Status is checked before business rules (409 takes precedence over 422).
+
+### 3. What I challenged
+- Nothing this round; I accepted the plan as presented.
+- **Raised by the AI in the plan:** the Prompt 1 design (ADR 005, `domain.md`) described the table as `(from → to)` pairs, which is bypassable:
+  - `Assign` on an InfoRequested claim would ride the claimant-response edge to UnderReview.
+  - `Reject` on an InfoRequested claim would ride the no-response edge, rejecting with free text before 15 days.
+  - Fixed with the action-keyed table; ADR 005 amended.
+
+### 4. What I overrode / cut for time
+- **Assumption added (flag for review):** the incident date may be up to UTC today + 1 day, because all markets are ahead of UTC (up to +11) and there are no per-market time zones. Otherwise a Sydney claimant reporting "today" in the morning would be rejected as a future date.
+- **Cut / deferred:** partial settlements, per-market rules, a document content-type allow-list (validator in the documents slice), RowVersion (an EF concern in slice 4).
+
+**Verification:**
+- `dotnet build -warnaserror` succeeded.
+- `dotnet test`: 188 passed (120 domain, 13 application, 55 integration).
+- Every action × status pair (10 × 6) is checked against an expected table written independently of the production table.
+- Mutation check: re-adding the `(Reject, InfoRequested)` bypass made 3 tests fail (`Reject_FromInfoRequested_IsInvalidTransition`, the matrix case, `ProductionTable_MatchesExpectedTable`); the table was then restored.

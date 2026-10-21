@@ -1,38 +1,38 @@
 # Domain
 
-> Design confirmed in Prompt 1; **no code yet**. Once `Claims.Domain` exists, the code is the source of truth.
+> Source of truth: `src/Claims.Domain/Claims/` (implemented slice 3). Not yet persisted (EF mapping in slice 4).
 
 ## Entities
-- **Claim** (aggregate root): Id, ClaimNumber (DB sequence, `CLM-YYYY-NNNNNN`), ClaimantUserId (JWT `sub`), Type (Motor|Property), Market + Currency (derived), PolicyNumber (string, no aggregate), IncidentDate, Description, ContactPhone, ClaimedAmount, Reserve?, ApprovedAmount?, OutstandingReserve, SettledAmount?, SettledAt?, RejectionReason?, Status (private set), AssignedToUserId?, SubmittedAt, DecidedAt?, RowVersion.
-  - **InformationRequest**: Id, Question, RequestedBy, RequestedAt, Response?, RespondedAt?. At most one open.
-  - **DocumentReference**: Id, FileName, ContentType, SizeBytes, StorageRef, UploadedBy, UploadedAt, InformationRequestId?. Metadata only.
-  - **ClaimHistoryEntry**: Id, Action, FromStatus?, ToStatus?, ActorUserId, ActorRole, OccurredAt, Reason?, Amount?. Single audit trail (status and non-status actions).
+- **Claim** (`Claim.cs`, aggregate root): Id, Number (`ClaimNumber`, `CLM-YYYY-NNNNNN`, sequence from DB in slice 4), ClaimantUserId (JWT `sub`), Type (Motor|Property), Market, Currency (from market), PolicyNumber (string), IncidentDate (`DateOnly`), Description, ContactPhone, ClaimedAmount, Reserve?, ApprovedAmount?, OutstandingReserve, SettledAmount?, SettledAt?, RejectionReason?, Status (private set), AssignedToUserId?, SubmittedAt, DecidedAt?. RowVersion added as an EF concern in slice 4.
+  - Amounts are plain `decimal` (2 dp) in the claim's single `Currency`; `Money` (`ValueObjects.cs`) is used when an amount leaves the claim (events, DTOs, reports). ADR 006.
+  - **InformationRequest** (`ClaimChildren.cs`): Id, Question, RequestedByUserId, RequestedAt, Response?, RespondedByUserId?, RespondedAt?. `IsOpen` = not responded. At most one open.
+  - **DocumentReference**: Id, FileName, ContentType, SizeBytes (≤ 20 MB), StorageRef, UploadedByUserId, UploadedAt, InformationRequestId? (set when the claimant uploads while a request is open). Metadata only.
+  - **ClaimHistoryEntry**: Id, Action (`ClaimAction`), FromStatus?, ToStatus?, ActorUserId, ActorRole, OccurredAt, Reason?, Amount?, TargetUserId? (assignee for Assign/Reassign). One row per action.
+- **Actor** (`UserId`, `Role`): passed into every method; built from the token by the application layer.
 - **Users** live in Identity (`ApplicationUser`: Id, Email, DisplayName, one role). Domain holds user ids only.
-- Infrastructure: OutboxMessage, ProcessedEvent, Notification, IdempotencyRecord.
+- Infrastructure (later slices): OutboxMessage, ProcessedEvent, Notification, IdempotencyRecord.
 
-## Claim state machine (single private `TransitionTo`; ADR 005)
-| From | To | Method | Who | Rules |
+## State machine (`ClaimTransitions.cs`, action-keyed; ADR 005)
+Table is keyed by **(action, current status) → new status**. Several actions share an edge, so a (from, to) table would let one action use another's path.
+
+| Action | From | To | Rules (422 if broken) | Event |
 |---|---|---|---|---|
-| Submitted | UnderReview | Assign | Staff (self) / Manager (any staff or manager) | |
-| UnderReview | InfoRequested | RequestInformation | Assigned staff / Manager | Question required; no open request |
-| InfoRequested | UnderReview | RespondToInformation | Owning claimant | Closes open request |
-| UnderReview | Approved | Approve | Assigned staff / Manager | Reserve set; 0 < ApprovedAmount ≤ Reserve; Outstanding := ApprovedAmount |
-| UnderReview | Rejected | Reject | Assigned staff / Manager | Reason required; Outstanding := 0 |
-| InfoRequested | Rejected | RejectForNoResponse | Assigned staff / Manager | Open request ≥ 15 days old (TimeProvider); reason "No response received"; Outstanding := 0 |
-| Approved | Settled | Settle | Assigned staff / Manager | 0 < amount ≤ ApprovedAmount; SettledAt; Outstanding := 0 |
+| Assign | Submitted | UnderReview | assignee id required | none |
+| RequestInformation | UnderReview | InfoRequested | question required; no open request | InformationRequested |
+| RespondToInformation | InfoRequested | UnderReview | response required; closes open request | none |
+| Approve | UnderReview | Approved | reserve set; 0 < amount ≤ Reserve; Outstanding := amount; DecidedAt | ClaimDecided(Approved) |
+| Reject | UnderReview | Rejected | reason required; Outstanding := 0; DecidedAt | ClaimDecided(Rejected) |
+| RejectForNoResponse | InfoRequested | Rejected | now ≥ open request + 15 days (exactly 15 allowed); reason "No response received"; Outstanding := 0 | ClaimDecided(RejectedNoResponse) |
+| Settle | Approved | Settled | 0 < amount ≤ ApprovedAmount; SettledAt; Outstanding := 0 | ClaimSettled |
 
-Terminal: Rejected, Settled. Not in table → 409. Rule broken in valid state → 422.
-
-Non-status actions (own method + audit entry):
-- **SetReserve**: UnderReview only; > 0; claim currency; Outstanding := Reserve.
-- **Reassign**: Manager only; reason required; UnderReview / InfoRequested / Approved; target is ClaimStaff or ClaimManager.
-- **AddDocument**: any non-terminal status.
+Actions that don't change status (allowed statuses): **SetReserve** UnderReview (> 0, repeatable, Outstanding := Reserve); **Reassign** UnderReview/InfoRequested/Approved (reason required; same assignee → 422); **AddDocument** any non-terminal.
+Terminal: Rejected, Settled. Wrong status → `InvalidTransitionException` (409), checked before any business rule.
 
 ## Invariants
-- Money is decimal + currency; currency derived from market, never from client. Timestamps UTC.
+- All amounts > 0 where entered, at most 2 decimals, in the claim currency; currency from market, never from the client. Timestamps UTC (`DateTimeOffset now` passed in from `TimeProvider`).
+- `Submit` only by a Claimant actor; incident date ≤ UTC today + 1 day (markets are ahead of UTC; no per-market time zones).
 - ClaimedAmount is informational; only Reserve / ApprovedAmount drive exposure.
-- Actor comes from the token, never the body.
-- Access: non-owning claimant → 404; unassigned ClaimStaff → 403.
+- Who may act (owner, assigned staff, manager) is enforced in the application layer: non-owning claimant → 404; unassigned ClaimStaff → 403.
 
 ## Glossary
 - **Reserve**: insurer's estimate of what it will pay, set by staff.

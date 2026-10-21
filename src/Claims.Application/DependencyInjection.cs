@@ -1,5 +1,6 @@
 using Claims.Application.Claims.Workflow;
 using Claims.Application.Common.Behaviors;
+using Claims.Application.Notifications;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -18,6 +19,7 @@ public static class DependencyInjection
         });
         services.AddValidatorsFromAssembly(assembly);
         services.AddScoped<ClaimWorkflow>();
+        services.AddScoped<ClaimEventNotificationHandler>();
 
         return services;
     }

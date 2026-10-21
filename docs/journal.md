@@ -254,3 +254,47 @@ History of prompts and AI decisions for the assessment panel. Append only; do no
   - Every action through to Settled succeeded: assign, request info, respond, document, assess.
   - Approve above the reserve got 422; reject after settle got 409; a missing If-Match got 428.
   - The claimant view shows Settled, and the outbox holds the 4 events in order. The API log had no failures or PII.
+
+---
+
+## PROMPT7: Slice 6, outbox relay + Kafka + notification consumer (2026-10-21)
+
+**Started:** 2026-10-21 09:13 +05:30 (plan requested) · **Finished:** 2026-10-21 09:24 +05:30 · **Time spent:** ~11 min (planned 35 min)
+
+**Asked:** Present the slice 6 plan (relay, Kafka publisher, idempotent notification consumer with DLT, `GET /notifications/mine`). After my OK, build it.
+
+### 1. What I directed the AI to do
+- Publish outbox rows to Kafka from a background relay (never from request handlers).
+- Consume them with an idempotent notification handler that commits offsets after processing and dead-letters failures.
+- Expose the claimant's notifications.
+- Prove it automatically without a broker, and manually against the real one.
+
+### 2. What I accepted
+- **`Kafka:Enabled` switch:** off in the test host, so `dotnet test` needs no broker. The relay and consumer logic sit in testable classes (`OutboxProcessor`, `MessageDispatcher`, `ClaimEventNotificationHandler`).
+- **Relay:** oldest-first batches of 50; stop at the first failure (keeps order); `Attempts`/`LastError` recorded; no attempt cap. Producer `acks=all`, idempotence on.
+- **Consumer:**
+  - Group `claims-notifications`; manual commit after handling or dead-lettering.
+  - 3 tries (1 s, 2 s), then `claims.events.dlt` with `x-error-type`/`x-original-topic` headers. Unparseable messages go straight to the DLT.
+- **Notification handler in Application** on `IClaimsDbContext`: the `Notification` and `ProcessedEvent` rows commit together; a racing duplicate is treated as already processed; text is built from the claim number only.
+- **Scope decisions:**
+  - `GET /notifications/mine` is unpaged (latest 50) with no read/unread state.
+  - A single API instance is assumed (the relay doesn't lock rows; the consumer dedupe absorbs double publishes).
+
+### 3. What I challenged
+- Nothing this round; I accepted the plan as presented.
+- **Raised by the AI during the build:**
+  - The first `RecordFailure` truncation assumed a fixed timestamp length; rewritten to truncate the final string.
+  - During the manual check, Git Bash rewrote container paths (`/opt/kafka/...` → `C:/Program Files/Git/...`). Fixed with `MSYS_NO_PATHCONV=1` and noted in the README.
+  - The event payload repeats `eventId`/`occurredAt`/`claimId` that are also in the envelope (the domain record is serialized whole). Harmless and left as is.
+
+### 4. What I overrode / cut for time
+- **Cut:** notification read/unread state; outbox row cleanup; an outbox attempt cap and per-row dead-lettering; multi-instance relay locking.
+
+**Verification:**
+- `dotnet build -warnaserror` succeeded.
+- `dotnet test`: 402 passed (120 domain, 43 application, 239 integration).
+- Mutation check: removing the `ProcessedEvent` write made `Handle_DuplicateEventId_CreatesOneNotification` and `Handle_UnknownType_…` fail; the handler was then restored.
+- **Manual run against Docker Kafka with the seeded `user@test.com`:**
+  1. Submit → notification "has been received" within 8 s. The envelope on `claims.events` has key = claimId and fields `eventId, type, version, occurredAt, claimId, payload`; no PII on the topic; consumer lag 0. Earlier backlog rows were published on startup.
+  2. `docker compose stop kafka`, submit → the claim was accepted (201) and the outbox row stayed unprocessed with `Attempts=2`, `LastError=ProduceException… Message timed out`. `docker compose start kafka` → processed (`Attempts=3`) and the claimant notified (AC-EVT-2).
+  3. Sent `poison-key|this is not json` to `claims.events` → it appeared on `claims.events.dlt` with `x-error-type:Unparseable`, `x-original-topic:claims.events`, and the original key and value (AC-EVT-3).

@@ -29,6 +29,7 @@ Auth: JWT bearer (`src/Claims.Api/Auth/AuthSetup.cs`). Fallback policy requires 
 | POST | /claims/{id}/reject | Staff (assigned) / Manager | `{reason}` | 200 | 400, 403, 404, 409, 412, 428 |
 | POST | /claims/{id}/reject-no-response | Staff (assigned) / Manager | none | 200 | 403, 404, 409, 412, 422 (< 15 days), 428 |
 | POST | /claims/{id}/settle | Staff (assigned) / Manager | `{amount}` (≤ approved) | 200 | 400, 403, 404, 409, 412, 422, 428 |
+| GET | /notifications/mine | Claimant | n/a | 200 `NotificationResponse[]` (own, latest 50, newest first; not paged) | 401, 403 |
 | POST | /claims/{id}/documents | Owner / assigned staff / manager | `{fileName, contentType (pdf/jpeg/png), sizeBytes (≤20 MB), storageRef}` | 201 detail + `Location` (claim) + ETag | 400, 403, 404, 409, 412, 428 |
 
 Claims (`src/Claims.Api/Controllers/ClaimsController.cs`, read model `src/Claims.Application/Claims/Common/ClaimReadModel.cs`):

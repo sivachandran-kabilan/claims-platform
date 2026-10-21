@@ -109,6 +109,29 @@ internal sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outb
     }
 }
 
+internal sealed class NotificationConfiguration : IEntityTypeConfiguration<Notification>
+{
+    public void Configure(EntityTypeBuilder<Notification> builder)
+    {
+        builder.ToTable("Notifications");
+        builder.Property(n => n.Id).ValueGeneratedNever();
+        builder.Property(n => n.ClaimNumber).HasMaxLength(20).IsUnicode(false);
+        builder.Property(n => n.Type).HasMaxLength(100);
+        builder.Property(n => n.Message).HasMaxLength(500);
+        builder.HasIndex(n => new { n.UserId, n.CreatedAt });
+    }
+}
+
+internal sealed class ProcessedEventConfiguration : IEntityTypeConfiguration<ProcessedEvent>
+{
+    public void Configure(EntityTypeBuilder<ProcessedEvent> builder)
+    {
+        builder.ToTable("ProcessedEvents");
+        builder.HasKey(e => e.EventId);
+        builder.Property(e => e.EventId).ValueGeneratedNever();
+    }
+}
+
 internal sealed class IdempotencyRecordConfiguration : IEntityTypeConfiguration<IdempotencyRecord>
 {
     public void Configure(EntityTypeBuilder<IdempotencyRecord> builder)

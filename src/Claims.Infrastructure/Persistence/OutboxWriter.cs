@@ -1,5 +1,5 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
+using Claims.Application.Common.Messaging;
 using Claims.Application.Common.Persistence;
 using Claims.Domain.Claims.Events;
 using Claims.Domain.Common;
@@ -10,11 +10,6 @@ namespace Claims.Infrastructure.Persistence;
 internal static class OutboxWriter
 {
     public const int EventVersion = 1;
-
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        Converters = { new JsonStringEnumConverter() },
-    };
 
     public static OutboxMessage ToOutboxMessage(IDomainEvent domainEvent)
     {
@@ -28,7 +23,7 @@ internal static class OutboxWriter
             domainEvent.GetType().Name,
             EventVersion,
             claimEvent.ClaimId,
-            JsonSerializer.Serialize(domainEvent, domainEvent.GetType(), JsonOptions),
+            JsonSerializer.Serialize(domainEvent, domainEvent.GetType(), EventJson.Options),
             domainEvent.OccurredAt);
     }
 }

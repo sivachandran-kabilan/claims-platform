@@ -15,6 +15,12 @@ Publishing to Kafka inside a request risks a committed claim with no event (or a
 - The outbox write lives in `ClaimsDbContext.SaveChangesAsync` (override): events from tracked `AggregateRoot`s become `OutboxMessage` rows in the same save. Events are cleared only after success; on failure the rows are detached so a retry can't duplicate them. Synchronous `SaveChanges` throws.
 - The table write was moved forward from the relay slice so AC-CLM-1 / AC-EVT-1 pass as soon as claims can be submitted.
 
+## Implementation (slice 6)
+- `OutboxProcessor` + `OutboxRelay` (Infrastructure/Messaging) publish via `IEventPublisher` (`KafkaEventPublisher`); the processor is tested with a fake publisher.
+- `NotificationConsumer` uses `MessageDispatcher` (retry 1 s/2 s → DLT; unparseable → DLT) and `ClaimEventNotificationHandler` (Application) for idempotent notifications; dispatcher tested with fakes.
+- `Kafka:Enabled` switch keeps the broker out of `dotnet test`. Manual checks (broker down/up, poison → DLT) recorded in the journal.
+- Single-instance assumption: the relay doesn't lock rows; several instances could publish twice, which the consumer's `eventId` check absorbs.
+
 ## Consequences
 - At-least-once delivery; duplicates are expected and handled.
 - Up to ~2 s publish latency. Outbox rows are never deleted in this build (README: cleanup job with more time).

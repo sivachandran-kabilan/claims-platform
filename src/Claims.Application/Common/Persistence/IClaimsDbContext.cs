@@ -13,6 +13,8 @@ public interface IClaimsDbContext
     DbSet<Claim> Claims { get; }
     DbSet<OutboxMessage> OutboxMessages { get; }
     DbSet<IdempotencyRecord> IdempotencyRecords { get; }
+    DbSet<Notification> Notifications { get; }
+    DbSet<ProcessedEvent> ProcessedEvents { get; }
 
     /// <summary>Change-tracking entry; the workflow uses it for the rowversion (If-Match) check.</summary>
     EntityEntry<TEntity> Entry<TEntity>(TEntity entity) where TEntity : class;

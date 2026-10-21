@@ -1,5 +1,8 @@
 using Claims.Application.Claims.Common;
+using Claims.Application.Common.Messaging;
 using Claims.Application.Common.Persistence;
+using Claims.Infrastructure.Messaging;
+using Confluent.Kafka;
 using Claims.Application.Identity;
 using Claims.Infrastructure.Identity;
 using Claims.Infrastructure.Persistence;
@@ -50,6 +53,33 @@ public static class DependencyInjection
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<DevUserSeeder>();
 
+        AddMessaging(services, configuration);
+
         return services;
+    }
+
+    /// <summary>Kafka producer, outbox relay and notification consumer. Skipped when Kafka:Enabled is false (tests).</summary>
+    private static void AddMessaging(IServiceCollection services, IConfiguration configuration)
+    {
+        var section = configuration.GetSection(KafkaOptions.SectionName);
+        services.Configure<KafkaOptions>(section);
+        var kafka = section.Get<KafkaOptions>() ?? new KafkaOptions();
+        if (!kafka.Enabled)
+        {
+            return;
+        }
+
+        services.AddSingleton(_ => new ProducerBuilder<string, string>(new ProducerConfig
+        {
+            BootstrapServers = kafka.BootstrapServers,
+            Acks = Acks.All,
+            EnableIdempotence = true, // broker de-duplicates producer retries
+            MessageTimeoutMs = 10_000,
+        }).Build());
+        services.AddSingleton<IEventPublisher, KafkaEventPublisher>();
+        services.AddSingleton<IDeadLetterPublisher, KafkaDeadLetterPublisher>();
+        services.AddScoped<OutboxProcessor>();
+        services.AddHostedService<OutboxRelay>();
+        services.AddHostedService<NotificationConsumer>();
     }
 }

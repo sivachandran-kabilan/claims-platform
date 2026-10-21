@@ -20,6 +20,8 @@ public sealed class ClaimsDbContext(DbContextOptions<ClaimsDbContext> options)
     public DbSet<Claim> Claims => Set<Claim>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
+    public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<ProcessedEvent> ProcessedEvents => Set<ProcessedEvent>();
 
     /// <summary>
     /// Collects domain events from tracked aggregates and saves them as outbox rows in the same SaveChanges

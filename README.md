@@ -41,6 +41,17 @@ They are for local development only. Self-registration always creates a Claimant
 
 The API refuses to start without a `Jwt:Key` of at least 32 bytes. If migrations are pending, seeding is skipped with a warning.
 
+## Kafka
+`docker compose up -d` starts Kafka (KRaft) on `localhost:9092`, creates `claims.events` (3 partitions) and `claims.events.dlt`, and serves Kafka UI on http://localhost:8080.
+The API publishes from the outbox every 2 s and consumes its own events to create claimant notifications (`GET /api/v1/notifications/mine`).
+If Kafka is down the API keeps working; outbox rows wait and are published when it is back.
+Set `Kafka:Enabled=false` to run without a broker (integration tests do).
+
+Inspect a topic from the container (Git Bash: prefix with `MSYS_NO_PATHCONV=1`):
+```bash
+docker exec claims-kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server kafka:29092 --topic claims.events --from-beginning --property print.key=true
+```
+
 ## Tests
 ```bash
 dotnet build -warnaserror

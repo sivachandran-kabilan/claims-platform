@@ -51,6 +51,7 @@ public class ClaimsApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Jwt:Audience", TestJwtAudience);
         builder.UseSetting("Jwt:Key", TestJwtKey);
         builder.UseSetting("RateLimiting:AuthPermitLimit", AuthPermitLimit.ToString());
+        builder.UseSetting("Kafka:Enabled", "false"); // no broker in tests; relay/consumer logic is tested directly
     }
 
     public async Task InitializeAsync()

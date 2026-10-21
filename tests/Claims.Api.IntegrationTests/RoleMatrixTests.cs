@@ -57,6 +57,8 @@ public static class RoleMatrix
         Action("reject-no-response", StaffAndManager),
         Action("settle", StaffAndManager),
         Action("documents", AnyUser),
+
+        new("GET", "api/v1/notifications/mine", "/api/v1/notifications/mine", ClaimantOnly),
     ];
 
     private static Row Action(string action, Caller[] allowed) =>

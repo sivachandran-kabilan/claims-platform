@@ -428,4 +428,4 @@ History of prompts and AI decisions for the assessment panel. Append only; do no
 
 **Verification:**
 - `npx ng build` is clean; the dev server recompiled and reloaded.
-- Manual re-test by me: **pending**. Steps: as manager, open a claim from All claims/Queue and act on it; as staff, open a claim; `/claims` as manager → dashboard; logged-out deep link → login with returnUrl.
+- Manual re-test by me: **passed** (confirmed at the start of the wrap-up prompt). Steps: as manager, open a claim from All claims/Queue and act on it; as staff, open a claim; `/claims` as manager → dashboard; logged-out deep link → login with returnUrl.

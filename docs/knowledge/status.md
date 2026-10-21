@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-10-21 09:55 +05:30 after slice 8 (OpenAPI + Angular)
+Last updated: 2026-10-21 10:16 +05:30 after slice 9 (wrap-up)
 
 ## Done
 - Prompt 1: design review. ADRs 001–007, domain, acceptance criteria, events catalog (planned).
@@ -11,20 +11,21 @@ Last updated: 2026-10-21 09:55 +05:30 after slice 8 (OpenAPI + Angular)
 - Slice 5: workflow. 10 action endpoints over one `ClaimWorkflow` runner (428 → 404 → 403 → 412 → domain), act rules, assignee check, `Claim.UpdatedAt` (ETag always changes), migration `AddClaimUpdatedAt`. 380 tests green (AC-CLM-3..8, 10..13, AC-X-1).
 - Slice 6: messaging. Outbox relay → Kafka (`claims.events`, key claimId), notification consumer (manual commit, retry → DLT, idempotent on eventId), `GET /notifications/mine`. Migration `AddNotifications`. 402 tests green (AC-EVT-2/3/4, AC-NOT-1); broker down/up and poison → DLT verified manually.
 - Slice 7: reports. `GET /reports/workload` (staff own row + queue; manager all incl. zero) and `GET /reports/exposure` (manager), GROUP BY projections behind `IReportQueries` (Infrastructure, DATEDIFF). 421 tests green (AC-RPT-1, AC-RPT-2). **Backend feature-complete.**
-- Slice 8: OpenAPI spec committed (`docs/openapi.json`), JSON-only request bodies; Angular 22 app in `web/` with generated client, auth (interceptor, guards, token storage), claimant/staff/manager pages. `ng build` clean; CORS/ETag/routes smoke-checked. AC-FE-1..4 manual (steps in journal).
+- Slice 8: OpenAPI spec committed (`docs/openapi.json`), JSON-only request bodies; Angular 22 app in `web/` with generated client, auth (interceptor, guards, token storage), claimant/staff/manager pages. `ng build` clean; CORS/ETag/routes smoke-checked. AC-FE-1..4 manual (steps in journal). Guard bug (staff/managers bounced off claim pages) found in manual testing, fixed, re-tested OK.
+- Slice 9: wrap-up. Final README (architecture, REST vs Kafka, AC → proof table, gaps). Clean-run check: strict build, 4 migrations on an empty DB, 421 tests, API start + seeding + reports on the new DB, docker topics, `npm ci` + `ng build`, generated client has no drift, no secrets tracked, no vulnerable NuGet/npm packages. Test factory now refuses to migrate/drop any DB but its own.
 
 ## In progress
 - (none)
 
-## Next (in order; estimates)
-1. Final README (architecture, REST vs Kafka, AC → tests table, gaps), clean-run check, final journal (25m)
+## Next
+- Build complete. Optional: act on code-review findings (see journal PROMPT11).
 
 ## Cut order if behind
 1. Staff frontend → 2. `GET /users` → 3. Documents → 4. Reassign endpoint → 5. DLT (log only) → 6. Reject-no-response endpoint.
 Never cut: auth + fallback policy, single transition method, outbox, role-matrix test, claimant isolation, reports.
 
 ## Known gaps and shortcuts (feed the README)
-- Already cut: refresh tokens, USD exposure total, disabling accounts, no-response background sweep, manager UI.
+- Already cut: refresh tokens, USD exposure total, disabling accounts, no-response background sweep. (The manager dashboard was built after all.)
 - No token revocation (changes apply at 15-min expiry). Duplicate-registration 409 allows email enumeration.
 - Notifications are in-app only, no read/unread state; consumer runs in the same process.
 - Relay assumes one API instance (no row locking); no attempt cap on outbox rows; one stuck row blocks later ones until the broker recovers.

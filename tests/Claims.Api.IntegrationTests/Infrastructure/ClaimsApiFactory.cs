@@ -30,13 +30,14 @@ public class ClaimsApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     public const string TestPassword = "Integration-Pass-2026";
 
     private readonly string _connectionString;
+    private readonly string _databaseName;
     private readonly ConcurrentDictionary<string, string> _tokensByRole = new();
 
     public ClaimsApiFactory()
     {
         var server = Environment.GetEnvironmentVariable("CLAIMS_TEST_SQLSERVER") ?? "localhost";
-        var database = $"ClaimsPlatform_Tests_{Guid.NewGuid():N}";
-        _connectionString = $"Server={server};Database={database};Integrated Security=true;TrustServerCertificate=true";
+        _databaseName = $"ClaimsPlatform_Tests_{Guid.NewGuid():N}";
+        _connectionString = $"Server={server};Database={_databaseName};Integrated Security=true;TrustServerCertificate=true";
     }
 
     /// <summary>Requests per minute per IP on auth endpoints. High by default: all test requests share one "IP".</summary>
@@ -57,17 +58,36 @@ public class ClaimsApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     public async Task InitializeAsync()
     {
         await using var scope = Services.CreateAsyncScope();
-        await scope.ServiceProvider.GetRequiredService<ClaimsDbContext>().Database.MigrateAsync();
+        var db = scope.ServiceProvider.GetRequiredService<ClaimsDbContext>();
+        EnsureOwnDatabase(db);
+        await db.Database.MigrateAsync();
     }
 
     public new async Task DisposeAsync()
     {
         await using (var scope = Services.CreateAsyncScope())
         {
-            await scope.ServiceProvider.GetRequiredService<ClaimsDbContext>().Database.EnsureDeletedAsync();
+            var db = scope.ServiceProvider.GetRequiredService<ClaimsDbContext>();
+            EnsureOwnDatabase(db);
+            await db.Database.EnsureDeletedAsync();
         }
 
         await base.DisposeAsync();
+    }
+
+    /// <summary>
+    /// Safety net before migrating and dropping: the host must be connected to this factory's throwaway
+    /// database. Fails loudly if configuration (e.g. a ConnectionStrings__Claims environment variable)
+    /// ever won over the test setting, instead of dropping a developer's real database.
+    /// </summary>
+    private void EnsureOwnDatabase(ClaimsDbContext db)
+    {
+        var actual = db.Database.GetDbConnection().Database;
+        if (actual != _databaseName)
+        {
+            throw new InvalidOperationException(
+                $"Test host is connected to '{actual}', not its throwaway database '{_databaseName}'. Refusing to migrate or drop it.");
+        }
     }
 
     /// <summary>Creates a user with the given role directly through the identity service (bypasses the API).</summary>

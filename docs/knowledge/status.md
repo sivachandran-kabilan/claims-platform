@@ -41,6 +41,7 @@ Never cut: auth + fallback policy, single transition method, outbox, role-matrix
 - Frontend: no automated tests (criteria are manual; a router-guard bug that blocked staff/managers from claim pages was caught in manual testing and fixed); generated models mark all fields optional (Swashbuckle doesn't emit `required`); no staff-account admin page (use Swagger `POST /users`); no OpenAPI drift test (Swagger is Development-only).
 - Workload report is not paged (one row per staff/manager account); page it if staff grows large.
 - Incident date allows UTC today + 1 day (markets ahead of UTC); no per-market time zones.
+- Dev configuration (connection string, JWT key, seed passwords) moved from user-secrets to `appsettings.Development.json` for submission (UserSecretsId removed); scrub sensitive values before sharing, use env vars outside Development.
 - Dev DB is `ClaimsPlatformDev` because a pre-existing `TEST` database on the local instance owns `ClaimsPlatform.mdf`.
 
 ## Open questions

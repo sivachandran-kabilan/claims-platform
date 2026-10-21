@@ -55,7 +55,7 @@ Feature-level criteria (Given/When/Then) are in `docs/knowledge/acceptance-crite
 - [ ] I've been reminded to add a journal entry and commit (commit format - feature_[meaningful_message]_[COMMITNO]_DDMMYYYY/ bugfix_[meaningful_message]_[COMMITNO]_DDMMYYYY). (e.g., feature_submit_claim_01_21102026)
 
 ## Stack
-- Backend: .NET 8, ASP.NET Core (MVC controllers with [ApiController], attribute routing), EF Core 8, SQL Server (local instance, connection string in appsettings / user-secrets)
+- Backend: .NET 8, ASP.NET Core (MVC controllers with [ApiController], attribute routing), EF Core 8, SQL Server (local instance, connection string in appsettings.Development.json)
 - Patterns: Clean Architecture, vertical slices, CQRS with MediatR, FluentValidation
 - Messaging: Kafka (Docker, single node, KRaft), `Confluent.Kafka`
 - Auth: ASP.NET Core Identity (user store + password hashing) on the same `DbContext`, JWT bearer tokens issued by our own Identity module
@@ -72,16 +72,14 @@ dotnet test tests/Claims.Domain.Tests tests/Claims.Application.Tests   # unit te
 dotnet ef migrations add <Name> -p src/Claims.Infrastructure -s src/Claims.Api -o Persistence/Migrations
 dotnet ef database update -p src/Claims.Infrastructure -s src/Claims.Api
 docker compose up -d          # Kafka (+ Kafka UI)
-dotnet user-secrets set "Jwt:Key" "<32+ byte random string>" --project src/Claims.Api
-dotnet user-secrets set "ConnectionStrings:Claims" "Server=localhost;Database=ClaimsPlatformDev;Integrated Security=true;TrustServerCertificate=true" --project src/Claims.Api
-dotnet user-secrets set "Seed:Manager:Email" "<email>" --project src/Claims.Api   # + Seed:Manager:Password, Seed:Staff:Email/Password, Seed:Claimant:Email/Password
+# Dev config (ConnectionStrings:Claims, Jwt:Key, Seed:*) lives in src/Claims.Api/appsettings.Development.json (user-secrets removed before submission)
 dotnet run --project src/Claims.Api
 cd web && npm ci && npx ng serve   # npm run gen:api regenerates the typed client from docs/openapi.json
 ```
 Run `dotnet build` and `dotnet test` after every change. Fix failures before reporting done.
 
 ## Test Accounts [email:password]
-Development only. Seeded at startup by `DevUserSeeder` from user-secrets (`Seed:Manager|Staff|Claimant`), not from source.
+Development only. Seeded at startup by `DevUserSeeder` from `appsettings.Development.json` (`Seed:Manager|Staff|Claimant`), not from source.
 manager@test.com:manager@test.com
 staff@test.com:staff@test.com
 user@test.com:user@test.com

@@ -45,7 +45,7 @@ public class ClaimsApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        // "Testing" keeps Development-only features (Swagger, user-secrets, dev seeding) out of tests.
+        // "Testing" keeps Development-only features (Swagger, appsettings.Development.json, dev seeding) out of tests.
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:Claims", _connectionString);
         builder.UseSetting("Jwt:Issuer", TestJwtIssuer);

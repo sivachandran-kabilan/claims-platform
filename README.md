@@ -92,12 +92,9 @@ docker compose up -d
 dotnet tool restore
 dotnet restore
 
-# 3. Configuration in user-secrets (nothing secret is committed)
-dotnet user-secrets set "ConnectionStrings:Claims" "Server=localhost;Database=ClaimsPlatformDev;Integrated Security=true;TrustServerCertificate=true" --project src/Claims.Api
-dotnet user-secrets set "Jwt:Key" "<random string, at least 32 bytes>" --project src/Claims.Api
-#    Dev accounts, seeded at startup in Development only (repeat for Seed:Staff and Seed:Claimant):
-dotnet user-secrets set "Seed:Manager:Email" "manager@test.com" --project src/Claims.Api
-dotnet user-secrets set "Seed:Manager:Password" "<password, 10+ chars>" --project src/Claims.Api
+# 3. Configuration: src/Claims.Api/appsettings.Development.json (loaded by the "http" launch profile,
+#    ASPNETCORE_ENVIRONMENT=Development). Set ConnectionStrings:Claims, Jwt:Key (32+ bytes) and the
+#    Seed:Manager|Staff|Claimant Email/Password dev accounts. Use environment variables outside Development.
 
 # 4. Database: schema, the three roles, the claim-number sequence
 dotnet ef database update -p src/Claims.Infrastructure -s src/Claims.Api
@@ -117,7 +114,7 @@ cd web && npm ci && npx ng serve
 | http://localhost:8080 | Kafka UI |
 
 ### Dev accounts
-In Development the API seeds one account per role from the `Seed:*` user-secrets and never overwrites existing users. The assessment test accounts (`manager@test.com`, `staff@test.com`, `user@test.com`, password = email) are listed in `CLAUDE.md`; they are for local development only. Self-registration always creates a Claimant. Staff and manager accounts are created by a manager via `POST /api/v1/users` (Swagger).
+In Development the API seeds one account per role from the `Seed:*` section of `appsettings.Development.json` and never overwrites existing users. The assessment test accounts (`manager@test.com`, `staff@test.com`, `user@test.com`, password = email) are listed in `CLAUDE.md`; they are for local development only. Self-registration always creates a Claimant. Staff and manager accounts are created by a manager via `POST /api/v1/users` (Swagger).
 
 The API refuses to start without a `Jwt:Key` of at least 32 bytes. If migrations are pending, seeding is skipped with a warning.
 
@@ -185,7 +182,7 @@ Full criteria: [`docs/knowledge/acceptance-criteria.md`](docs/knowledge/acceptan
 - **Login:** identical 401 for unknown email, wrong password and lockout (with a dummy hash check for timing); lockout after 5 failures for 15 minutes; 10 requests/min per IP on register and login. Duplicate registration returns 409, which reveals that an email exists (accepted trade-off).
 - **Authorization:** a fallback policy requires authentication everywhere (including unknown URLs: anonymous → 401); every endpoint declares its role policy; resource checks (owner 404, assigned staff 403) run in the application layer. Identity always comes from the token, never the body.
 - **Web token storage:** in memory with `sessionStorage` as the reload fallback. Readable by any script on the page (XSS), with damage limited by the 15-minute lifetime. Production: BFF / httpOnly cookie.
-- **Data and logs:** secrets only in user-secrets; CORS limited to `http://localhost:4200`; request bodies `application/json` only; errors are RFC 7807 ProblemDetails with no internals; logs record ids and exception types only (no PII, and the framework's exception-message log is disabled).
+- **Data and logs:** dev configuration (connection string, JWT key, seed accounts) in `appsettings.Development.json`, environment variables elsewhere; CORS limited to `http://localhost:4200`; request bodies `application/json` only; errors are RFC 7807 ProblemDetails with no internals; logs record ids and exception types only (no PII, and the framework's exception-message log is disabled).
 
 ---
 

@@ -22,7 +22,7 @@ Current-state documentation of this project, written for Claude (and humans). **
 - `web/` (Angular 22): `src/app/api/` generated client (ng-openapi-gen from `docs/openapi.json`; don't edit), `core/` (AuthService: token signal + sessionStorage, interceptor 401/403, roleGuard, NoticeService/ProblemDetails), `features/` (auth, claimant, claims/claim-detail shared by all roles, staff, manager), `app.routes.ts` (lazy routes + guards), `environments/` (apiBaseUrl).
 
 ## How to run
-See `README.md`: `docker compose up -d`, `dotnet tool restore`, user-secrets (`ConnectionStrings:Claims` → `ClaimsPlatformDev`, `Jwt:Key`, `Seed:*`), `dotnet ef database update`, `dotnet run --project src/Claims.Api`; `cd web && npm ci && npx ng serve`.
+See `README.md`: `docker compose up -d`, `dotnet tool restore`, `src/Claims.Api/appsettings.Development.json` (`ConnectionStrings:Claims` → `ClaimsPlatformDev`, `Jwt:Key`, `Seed:*`; user-secrets removed), `dotnet ef database update`, `dotnet run --project src/Claims.Api`; `cd web && npm ci && npx ng serve`.
 
 ## Rules for keeping this accurate
 1. Update the affected files in the same commit as the code change.

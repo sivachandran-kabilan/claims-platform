@@ -9,7 +9,7 @@ namespace Claims.Infrastructure.Identity;
 
 /// <summary>
 /// Development only: creates the manager, staff and claimant accounts from configuration
-/// (Seed:Manager / Seed:Staff / Seed:Claimant in user-secrets). Never overwrites existing users.
+/// (Seed:Manager / Seed:Staff / Seed:Claimant in appsettings.Development.json). Never overwrites existing users.
 /// </summary>
 public sealed class DevUserSeeder(
     ClaimsDbContext db,

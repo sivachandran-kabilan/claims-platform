@@ -16,7 +16,7 @@ public static class AuthSetup
     {
         services.AddOptions<JwtOptions>()
             .Bind(configuration.GetSection(JwtOptions.SectionName))
-            .Validate(o => Encoding.UTF8.GetByteCount(o.Key) >= 32, "Jwt:Key must be at least 32 bytes (set it with dotnet user-secrets).")
+            .Validate(o => Encoding.UTF8.GetByteCount(o.Key) >= 32, "Jwt:Key must be at least 32 bytes (set it in appsettings.Development.json).")
             .Validate(o => o.Issuer.Length > 0 && o.Audience.Length > 0, "Jwt:Issuer and Jwt:Audience are required.")
             .Validate(o => o.AccessTokenMinutes is > 0 and <= 15, "Jwt:AccessTokenMinutes must be between 1 and 15.")
             .ValidateOnStart();

@@ -19,10 +19,10 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        // Comes from user-secrets or environment variables; never committed.
+        // Comes from appsettings.Development.json locally, or environment variables elsewhere.
         var connectionString = configuration.GetConnectionString("Claims")
             ?? throw new InvalidOperationException(
-                "Connection string 'Claims' is not configured. Set it with dotnet user-secrets (see README).");
+                "Connection string 'Claims' is not configured. Set it in appsettings.Development.json (see README).");
 
         // Split queries: a claim detail loads 3 child collections without multiplying rows.
         services.AddDbContext<ClaimsDbContext>(options => options.UseSqlServer(

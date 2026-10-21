@@ -43,10 +43,13 @@ public static class TestTokens
         return $"{header}.{payload}.";
     }
 
-    /// <summary>Valid token with one character of the signature changed.</summary>
+    /// <summary>
+    /// Valid token with the first character of the signature changed. Not the last character: its low
+    /// 2 bits are base64url padding the decoder ignores, so 'A' → 'B' there left the signature valid (flaky).
+    /// </summary>
     public static string Tamper(string token)
     {
-        var last = token[^1];
-        return token[..^1] + (last == 'A' ? 'B' : 'A');
+        var i = token.LastIndexOf('.') + 1;
+        return token[..i] + (token[i] == 'A' ? 'B' : 'A') + token[(i + 1)..];
     }
 }

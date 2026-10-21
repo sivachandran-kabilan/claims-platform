@@ -34,3 +34,6 @@ Brief requires registration and login. External IdP is a non-goal.
 - Rate limiting is per IP: clients behind one NAT share a budget; no distributed limiter.
 - Dev test accounts use password = email (from CLAUDE.md); acceptable only because they are Development-only and configured via user-secrets.
 - Production would use an enterprise IdP (Azure AD / OIDC).
+
+## Amendment (2026-10-21, before submission)
+- User-secrets removed (`UserSecretsId` dropped). The JWT key, connection string and `Seed:*` accounts now live in `src/Claims.Api/appsettings.Development.json`, so reviewers see every setting in one file. Sensitive values must be scrubbed or rotated before the repo is shared; outside Development use environment variables.

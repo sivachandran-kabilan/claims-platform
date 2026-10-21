@@ -262,3 +262,6 @@ show the code review findings
 ## 2026-10-21 10:50:29 +05:30
 commit unsaved changes and then write all these finding to a file called code-review to fix it later.
 
+
+## 2026-10-21 20:20:26 +05:30
+migrate all user setings to appsettings. I am going to submit this project. I will remove sensitive values. but move all key value to appsettings and update launch profile to read from appsettings dev

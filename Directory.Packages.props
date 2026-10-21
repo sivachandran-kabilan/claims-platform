@@ -1,0 +1,31 @@
+<Project>
+  <!-- Central package management: every version is pinned here once (approved list: docs/adr/007). -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+  <ItemGroup Label="Application">
+    <!-- 12.x is the last Apache-2.0 release; 13+ is commercially licensed. -->
+    <PackageVersion Include="MediatR" Version="12.5.0" />
+    <PackageVersion Include="FluentValidation" Version="12.2.0" />
+    <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.2.0" />
+  </ItemGroup>
+  <ItemGroup Label="Infrastructure">
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.32" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.32" />
+    <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.32" />
+  </ItemGroup>
+  <ItemGroup Label="Api">
+    <!-- 9.x: last line on Microsoft.OpenApi 1.x (10.x moves to the breaking 2.x model). -->
+    <PackageVersion Include="Swashbuckle.AspNetCore" Version="9.0.6" />
+  </ItemGroup>
+  <ItemGroup Label="Tests">
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <!-- 7.x is the last Apache-2.0 release; 8+ is commercially licensed. -->
+    <PackageVersion Include="FluentAssertions" Version="7.2.2" />
+    <PackageVersion Include="NSubstitute" Version="5.3.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.32" />
+  </ItemGroup>
+</Project>

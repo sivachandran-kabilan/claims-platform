@@ -58,3 +58,19 @@ Approved amount is set manually and it has to be less than reserve amount. All o
 ## 2026-10-21 07:46:40 +05:30
 commit all the files
 
+
+## 2026-10-21 07:49:00 +05:30
+check the system for all dependencies and runtime versions before performing scaffolding and show the detailed scaffolding plan.
+
+
+## 2026-10-21 07:56:15 +05:30
+Why Swashbuckle 6.9? All other recommendations are fine.
+
+
+## 2026-10-21 07:57:37 +05:30
+go with 9.0.6 and start scaffolding. Additionally add timestamp while writing journal file and actual time spent on section.
+
+
+## 2026-10-21 08:04:33 +05:30
+yes commit
+

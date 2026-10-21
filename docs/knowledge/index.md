@@ -13,15 +13,16 @@ Current-state documentation of this project, written for Claude (and humans). **
 | `decisions.md` | One-line summary of each ADR | Questioning an architectural choice |
 
 ## Project map
-<!-- Fill in as projects are scaffolded -->
-- `src/Claims.Domain`: ...
-- `src/Claims.Application`: ...
-- `src/Claims.Infrastructure`: ...
-- `src/Claims.Api`: ...
-- `web/`: ...
+- Root: `global.json` (SDK 8.0.426), `Directory.Build.props` (net8.0, nullable, warnings as errors), `Directory.Packages.props` (all package versions), `.config/dotnet-tools.json` (dotnet-ef 8.0.32), `docker-compose.yml` (Kafka, topic init, Kafka UI).
+- `src/Claims.Domain`: `Common/` domain exceptions (`InvalidTransitionException` → 409, `BusinessRuleException` → 422). Aggregates come in slice 3.
+- `src/Claims.Application`: `DependencyInjection.AddApplication()` (MediatR + validators), `Common/Behaviors/ValidationBehavior` (→ 400).
+- `src/Claims.Infrastructure`: `Persistence/ClaimsDbContext` (single DbContext), `DependencyInjection.AddInfrastructure()` (fails fast without `ConnectionStrings:Claims`).
+- `src/Claims.Api`: `Program.cs` (composition root), `Errors/GlobalExceptionHandler` (exception → ProblemDetails). http://localhost:5000.
+- `tests/Claims.Api.IntegrationTests/Infrastructure/ClaimsApiFactory`: in-memory host, environment `Testing`, throwaway DB per run (`Api` collection fixture).
+- `web/`: not created yet (slice 9).
 
 ## How to run
-<!-- Fill in: docker compose up -d, connection string location, migrations, run API, run web -->
+See `README.md`: `docker compose up -d`, `dotnet tool restore`, set the `ConnectionStrings:Claims` user-secret, `dotnet run --project src/Claims.Api`. Migrations start in slice 2.
 
 ## Rules for keeping this accurate
 1. Update the affected files in the same commit as the code change.
